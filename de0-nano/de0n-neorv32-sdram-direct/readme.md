@@ -21,10 +21,10 @@ This is a simple example using on-chip RAM as memory for IMEM and DMEM. In addit
 
 A memory test was also implemented. The terminal output looks like:
 
-><dl>
-*****************************<br>
+<dl>
+*********************************<br>
 &nbsp;&nbsp;&nbsp;&nbsp;Memory test and running light<br>
-*****************************<br>
+*********************************<br>
 <br>
 Memory test for 33554432 bytes is started.<br>
 &nbsp;&nbsp;Data Bus Test... OK<br>
