@@ -19,5 +19,21 @@
 
 This is a simple example using on-chip RAM as memory for IMEM and DMEM. In addition, there is the SDRAM which can be addressed directly via the Wishbone bus.
 
+A memory test was also implemented. The terminal output looks like:
+
+><dl>
+*****************************<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Memory test and running light<br>
+*****************************<br>
+<br>
+Memory test for 33554432 bytes is started.<br>
+&nbsp;&nbsp;Data Bus Test... OK<br>
+&nbsp;&nbsp;Address Bus Test... OK<br>
+&nbsp;&nbsp;Device Test... OK<br>
+Memory test successfully completed.<br>
+<br>
+Scotty! Energie, starting running light...<br>
+</dl>
+
 ## Embedded Studio for RISC-V
 A description of how to use Embedded Studio for RISC-V will be available soon.
