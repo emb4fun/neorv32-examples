@@ -108,7 +108,6 @@ architecture syn of top is
       port ( 
          inclk0 : in  std_logic := '0';
          c0     : out std_logic;
-         c1     : out std_logic;
          locked : out std_logic 
       );
    end component pll_sys;
@@ -324,7 +323,6 @@ begin
       port map ( 
          inclk0 => CLOCK_50,
          c0     => sys_clk,
-         c1     => open,
          locked => pll_locked
       );
 
