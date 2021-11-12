@@ -10,7 +10,7 @@
 #### Memory Address Map:
 
 | Region  | Start Address | End Address | Size (bytes) | Description |
-| :------ | :------------ | :-------- - | :----------- | :---------- |
+| :------ | :------------ | :---------- | :----------- | :---------- |
 | IMEM    | 0x00000000    | 0x00003FFF  | 16K          | TCM On-chip RAM |
 | DMEM    | 0x80000000    | 0x80001FFF  | 8K           | TCM On-chip RAM |
 
