@@ -1,4 +1,4 @@
-## de0n-neorv32-blinky (reference)
+## de0n-neorv32-sdram-direct
 
 #### Equipment information:
 
