@@ -1,4 +1,4 @@
-## de0n-neorv32-blinky
+## de0n-neorv32-blinky (reference)
 
 #### Equipment information:
 
@@ -17,7 +17,7 @@
 
 ## Description
 
-In terms of functionality, this project can be seen as a reference for testing
+In terms of functionality, this project can be seen as a **reference** for testing
 the Setup, Toolchain  and Debugging. 
 
 This is a simple example using on-chip RAM as memory. Compared to the original
