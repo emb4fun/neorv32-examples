@@ -114,13 +114,13 @@ int main (void)
     */
    if (neorv32_Init() != 0) return(1);
     
-   neorv32_uart0_print("\nLED chaser program\n");
+   neorv32_uart0_print("\nRunning light\n");
 
    /* Clear gpio output */
    neorv32_gpio_port_set(0);
 
    /*
-    * LED chaser
+    * Running light
     */   
    while (1) 
    {
