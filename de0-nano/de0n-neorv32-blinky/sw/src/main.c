@@ -64,9 +64,9 @@
 /*=======================================================================*/
 
 /*************************************************************************/
-/*  OutputFrequencyInfo                                                  */
+/*  neorv32_Init                                                         */
 /*                                                                       */
-/*  Output frequency information.                                        */
+/*  Initializs the NEORV32 system.                                       */
 /*                                                                       */
 /*  In    : none                                                         */
 /*  Out   : none                                                         */
