@@ -2,11 +2,12 @@
 
 #### Project information:
 
-| Board   | [Terasic DE0-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=139&No=593) |
-| :------ | :---------- |
-| FPGA    | Cyclone IV `EP4CE22F17C6N` |
-| Quartus | 11.1sp2     |
-| clk_i   | 96 MHz      |
+| Board    | [Terasic DE0-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=139&No=593) |
+| :------- | :------------- |
+| FPGA     | Cyclone IV `EP4CE22F17C6N` |
+| Quartus  | 11.1sp2        |
+| clk_i    | 96 MHz         |
+| Terminal | 19200, 8, N, 1 |
 
 #### Memory Address Map:
 
@@ -31,4 +32,5 @@ The description for the original blinky can be found [here](https://github.com/e
 All credit must go to Stephan Nolting who has providing the [NEORV32](https://github.com/stnolting/neorv32) project. I've only made minor changes against the original blinky project here. 
 
 ## Embedded Studio for RISC-V
+
 A description of how to use Embedded Studio for RISC-V will be available soon.
