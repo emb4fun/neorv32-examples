@@ -1,4 +1,4 @@
-## de0n-neorv32-sdram-direct
+## de0n-neorv32-sdram-qsys
 
 #### Project information:
 
