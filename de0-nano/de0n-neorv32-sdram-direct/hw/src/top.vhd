@@ -112,8 +112,8 @@ architecture syn of top is
    --------------------------------------------------------
 
    constant  CLOCK_FREQUENCY   : natural := 96000000;    -- clock frequency of clk_i in Hz
-   constant  MEM_INT_IMEM_SIZE : natural := 16*1024;     -- size of processor-internal instruction memory in bytes
-   constant  MEM_INT_DMEM_SIZE : natural := 8*1024;      -- size of processor-internal data memory in bytes
+   constant  MEM_INT_IMEM_SIZE : natural := 32*1024;     -- size of processor-internal instruction memory in bytes
+   constant  MEM_INT_DMEM_SIZE : natural := 16*1024;     -- size of processor-internal data memory in bytes
 
    
    --------------------------------------------------------

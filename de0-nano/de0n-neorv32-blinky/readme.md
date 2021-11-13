@@ -1,18 +1,19 @@
 ## de0n-neorv32-blinky (reference)
 
-#### Equipment information:
+#### Project information:
 
 | Board   | [Terasic DE0-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=139&No=593) |
 | :------ | :---------- |
 | FPGA    | Cyclone IV `EP4CE22F17C6N` |
 | Quartus | 11.1sp2     |
+| clk_i   | 96 MHz      |
 
 #### Memory Address Map:
 
 | Region  | Start Address | End Address | Size (bytes) | Description |
 | :------ | :------------ | :---------- | :----------- | :---------- |
-| IMEM    | 0x00000000    | 0x00003FFF  | 16K          | TCM On-chip RAM |
-| DMEM    | 0x80000000    | 0x80001FFF  | 8K           | TCM On-chip RAM |
+| IMEM    | 0x00000000    | 0x00007FFF  | 32K          | TCM On-chip RAM |
+| DMEM    | 0x80000000    | 0x80003FFF  | 16K          | TCM On-chip RAM |
 
 
 ## Description
