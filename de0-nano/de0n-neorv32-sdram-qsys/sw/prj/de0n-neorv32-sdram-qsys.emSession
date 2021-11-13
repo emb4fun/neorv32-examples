@@ -56,7 +56,7 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="193" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../src/main.c" selected="1" top="178" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="199" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../src/main.c" selected="1" top="178" codecName="Default"/>
  </Files>
  <RISCVCrossStudioWindow activeProject="de0n-neorv32-sdram-qsys" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="TCM Release" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="D:/Projekte/GitHub/neorv32-examples/neorv32/sw/lib/source" debugSearchPath="" autoConnectCapabilities="1151"/>
 </session>

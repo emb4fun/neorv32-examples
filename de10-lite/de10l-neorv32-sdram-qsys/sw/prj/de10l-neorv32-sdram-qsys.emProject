@@ -1,0 +1,68 @@
+<!DOCTYPE CrossStudio_Project_File>
+<solution Name="de10l-neorv32-sdram-qsys" target="20" version="2">
+  <project Name="de10l-neorv32-sdram-qsys">
+    <configuration
+      LIBRARY_IO_TYPE="SEMIHOST (host-formatted)"
+      Name="Common"
+      RISCV_TOOLCHAIN_VARIANT="Standard"
+      arm_compiler_variant="gcc"
+      arm_linker_variant="GNU"
+      arm_rtl_variant="SEGGER"
+      build_generic_options_file_name=""
+      build_intermediate_directory="$(Configuration)"
+      build_output_directory="$(Configuration)"
+      c_user_include_directories="..\\..\\..\\..\\neorv32\\sw\\lib\\include;..\\inc"
+      debug_target_connection="J-Link"
+      heap_size="256"
+      linker_memory_map_file="$(ProjectDir)/neorv32_MemoryMap.xml"
+      linker_section_placement_file="$(ProjectDir)/tcm_placement_riscv.xml"
+      linker_section_placements_segments=""
+      project_directory=""
+      project_type="Executable"
+      rv_arch_ext=""
+      rv_architecture="rv32imac"
+      rv_debug_extensions="None"
+      rv_toolchain_prefix=""
+      stack_size="1024"
+      target_device_name="RV32"
+      target_reset_script="Reset()"
+      target_script_file="$(ProjectDir)/neorv32_Target.js" />
+    <folder Name="Source Files">
+      <configuration Name="Common" filter="c;cpp;cxx;cc;h;s;asm;inc" />
+      <folder Name="src">
+        <file file_name="../src/main.c" />
+        <file file_name="../src/memtest.c" />
+        <file file_name="../src/terminal.c" />
+      </folder>
+      <folder Name="lib">
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_cfs.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_cpu.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_gpio.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_gptmr.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_mtime.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_neoled.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_pwm.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_rte.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_slink.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_spi.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_trng.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_twi.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_uart.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_wdt.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_xirq.c" />
+      </folder>
+    </folder>
+    <folder Name="System Files">
+      <file file_name="riscv_crt0.s" />
+    </folder>
+    <configuration Name="Release" gcc_optimization_level="Level 2 balanced" />
+    <configuration
+      Name="TCM"
+      linker_section_placement_file="$(ProjectDir)/tcm_placement_riscv.xml" />
+  </project>
+  <configuration Name="Debug" hidden="Yes" />
+  <configuration Name="Release" hidden="Yes" />
+  <configuration Name="TCM" hidden="Yes" />
+  <configuration Name="TCM Debug" />
+  <configuration Name="TCM Release" />
+</solution>
