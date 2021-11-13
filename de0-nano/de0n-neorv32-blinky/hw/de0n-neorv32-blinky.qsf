@@ -70,7 +70,7 @@ set_location_assignment PIN_T9 -to TCK_i
 set_location_assignment PIN_R10 -to TDI_i
 set_location_assignment PIN_L15 -to TDO_o
 set_location_assignment PIN_P9 -to TMS_i
-#set_location_assignment PIN_E18 -to nRESET_i
+#set_location_assignment PIN_P16 -to nRESET_i
 
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to nTRST_i
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TCK_i
