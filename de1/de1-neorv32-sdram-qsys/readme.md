@@ -1,28 +1,4 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                                 ## de1-neorv32-sdram-qsys
+## de1-neorv32-sdram-qsys
 
 #### Project information:
 
