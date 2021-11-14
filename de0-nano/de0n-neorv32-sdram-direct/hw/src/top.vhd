@@ -52,16 +52,16 @@ entity top is
       --
       -- Input clock 
       --
-      CLOCK_50  : in  std_logic;
+      CLOCK_50    : in  std_logic;
 
       --
       -- JTAG TAP
       --
-      nTRST_i       : in  std_logic;
-      TCK_i         : in  std_logic;
-      TDI_i         : in  std_logic; 
-      TDO_o         : out std_logic;
-      TMS_i         : in  std_logic;
+      nTRST_i     : in  std_logic;
+      TCK_i       : in  std_logic;
+      TDI_i       : in  std_logic; 
+      TDO_o       : out std_logic;
+      TMS_i       : in  std_logic;
 
       --
       -- SDRAM interface,
@@ -69,34 +69,34 @@ entity top is
       -- Reference is made to Zentel datasheet:
       -- A3V64S40ETP, Revision 1.2, Mar., 2010
       --        
-      SDRAM_CLK     : out   std_logic;                       -- Master Clock
-      SDRAM_CKE     : out   std_logic;                       -- Clock Enable    
-      SDRAM_CS_N    : out   std_logic;                       -- Chip Select
-      SDRAM_RAS_N   : out   std_logic;                       -- Row Address Strobe
-      SDRAM_CAS_N   : out   std_logic;                       -- Column Address Strobe
-      SDRAM_WE_N    : out   std_logic;                       -- Write Enable
-      SDRAM_DQ      : inout std_logic_vector(15 downto 0);   -- Data I/O (16 bits)
-      SDRAM_DQML    : out   std_logic;                       -- Output Disable / Write Mask (low)
-      SDRAM_DQMU    : out   std_logic;                       -- Output Disable / Write Mask (high)
-      SDRAM_ADDR    : out   std_logic_vector(12 downto 0);   -- Address Input (12 bits)
-      SDRAM_BA_0    : out   std_logic;                       -- Bank Address 0
-      SDRAM_BA_1    : out   std_logic;                       -- Bank Address 1
+      SDRAM_CLK   : out   std_logic;                        -- Master Clock
+      SDRAM_CKE   : out   std_logic;                        -- Clock Enable    
+      SDRAM_CS_N  : out   std_logic;                        -- Chip Select
+      SDRAM_RAS_N : out   std_logic;                        -- Row Address Strobe
+      SDRAM_CAS_N : out   std_logic;                        -- Column Address Strobe
+      SDRAM_WE_N  : out   std_logic;                        -- Write Enable
+      SDRAM_DQ    : inout std_logic_vector(15 downto 0);    -- Data I/O (16 bits)
+      SDRAM_DQML  : out   std_logic;                        -- Output Disable / Write Mask (low)
+      SDRAM_DQMU  : out   std_logic;                        -- Output Disable / Write Mask (high)
+      SDRAM_ADDR  : out   std_logic_vector(12 downto 0);    -- Address Input (12 bits)
+      SDRAM_BA_0  : out   std_logic;                        -- Bank Address 0
+      SDRAM_BA_1  : out   std_logic;                        -- Bank Address 1
       
       --
       -- User LEDs
       --
-      LED       : out std_logic_vector(7 downto 0);
+      LED         : out std_logic_vector(7 downto 0);
       
       --
       -- Keys
       --
-      KEY       : in  std_logic_vector(1 downto 0);
+      KEY         : in  std_logic_vector(1 downto 0);
       
       --
       -- UART      
       --
-      UART0_TXD : out std_logic;
-      UART0_RXD : in  std_logic
+      UART0_TXD   : out std_logic;
+      UART0_RXD   : in  std_logic
    );
 end entity top;
 
@@ -111,9 +111,9 @@ architecture syn of top is
    -- Define all constants here
    --------------------------------------------------------
 
-   constant  CLOCK_FREQUENCY   : natural := 96000000;    -- clock frequency of clk_i in Hz
-   constant  MEM_INT_IMEM_SIZE : natural := 32*1024;     -- size of processor-internal instruction memory in bytes
-   constant  MEM_INT_DMEM_SIZE : natural := 16*1024;     -- size of processor-internal data memory in bytes
+   constant CLOCK_FREQUENCY   : natural := 96000000;     -- clock frequency of clk_i in Hz
+   constant MEM_INT_IMEM_SIZE : natural := 32*1024;      -- size of processor-internal instruction memory in bytes
+   constant MEM_INT_DMEM_SIZE : natural := 16*1024;      -- size of processor-internal data memory in bytes
 
    
    --------------------------------------------------------
@@ -173,28 +173,28 @@ architecture syn of top is
    component wb_sdram is
       port (  
          -- System
-         clk_i        : in  std_logic                      := '0';
-         rst_i        : in  std_logic                      := '0';
+         clk_i       : in  std_logic                      := '0';
+         rst_i       : in  std_logic                      := '0';
 
          -- Wishbone
-         wbs_stb_i    : in  std_logic                      := '0';
-         wbs_we_i     : in  std_logic                      := '0';
-         wbs_sel_i    : in  std_logic_vector(03 downto 0)  := (others => '0');
-         wbs_adr_i    : in  std_logic_vector(27 downto 0)  := (others => '0');
-         wbs_dat_i    : in  std_logic_vector(31 downto 0)  := (others => '0');
-         wbs_dat_o    : out std_logic_vector(31 downto 0);  
-         wbs_ack_o    : out std_logic;
+         wbs_stb_i   : in  std_logic                      := '0';
+         wbs_we_i    : in  std_logic                      := '0';
+         wbs_sel_i   : in  std_logic_vector(03 downto 0)  := (others => '0');
+         wbs_adr_i   : in  std_logic_vector(27 downto 0)  := (others => '0');
+         wbs_dat_i   : in  std_logic_vector(31 downto 0)  := (others => '0');
+         wbs_dat_o   : out std_logic_vector(31 downto 0);  
+         wbs_ack_o   : out std_logic;
       
          -- SDRAM
-         sdram_addr   : out   std_logic_vector(12 downto 0);                    -- addr
-         sdram_ba     : out   std_logic_vector(1 downto 0);                     -- ba
-         sdram_cas_n  : out   std_logic;                                        -- cas_n
-         sdram_cke    : out   std_logic;                                        -- cke
-         sdram_cs_n   : out   std_logic;                                        -- cs_n
-         sdram_dq     : inout std_logic_vector(15 downto 0) := (others => 'X'); -- dq
-         sdram_dqm    : out   std_logic_vector(1 downto 0);                     -- dqm
-         sdram_ras_n  : out   std_logic;                                        -- ras_n
-         sdram_we_n   : out   std_logic                                         -- we_n
+         sdram_addr  : out   std_logic_vector(12 downto 0);                    -- addr
+         sdram_ba    : out   std_logic_vector(1 downto 0);                     -- ba
+         sdram_cas_n : out   std_logic;                                        -- cas_n
+         sdram_cke   : out   std_logic;                                        -- cke
+         sdram_cs_n  : out   std_logic;                                        -- cs_n
+         sdram_dq    : inout std_logic_vector(15 downto 0) := (others => 'X'); -- dq
+         sdram_dqm   : out   std_logic_vector(1 downto 0);                     -- dqm
+         sdram_ras_n : out   std_logic;                                        -- ras_n
+         sdram_we_n  : out   std_logic                                         -- we_n
       );
    end component wb_sdram;
    
@@ -427,6 +427,7 @@ architecture syn of top is
    signal wbs1_adr_i       : std_logic_vector(27 downto 0);
    signal wbs1_dat_o       : std_logic_vector(31 downto 0);
 
+
 begin
 
    --
@@ -593,28 +594,28 @@ begin
    inst_wb_sdram: wb_sdram
       port map (  
          -- System
-         clk_i        => sys_clk,
-         rst_i        => sys_rst,
+         clk_i       => sys_clk,
+         rst_i       => sys_rst,
 
          -- Wishbone
-         wbs_stb_i    => wbs1_stb_i,
-         wbs_we_i     => wbs_we_i,
-         wbs_sel_i    => wbs_sel_i,
-         wbs_adr_i    => wbs1_adr_i,
-         wbs_dat_i    => wbs_dat_i,
-         wbs_dat_o    => wbs1_dat_o,
-         wbs_ack_o    => wbs1_ack_o,
+         wbs_stb_i   => wbs1_stb_i,
+         wbs_we_i    => wbs_we_i,
+         wbs_sel_i   => wbs_sel_i,
+         wbs_adr_i   => wbs1_adr_i,
+         wbs_dat_i   => wbs_dat_i,
+         wbs_dat_o   => wbs1_dat_o,
+         wbs_ack_o   => wbs1_ack_o,
 
          -- SDRAM
-         sdram_addr   => SDRAM_ADDR,
-         sdram_ba     => sdram_ba,
-         sdram_cas_n  => SDRAM_CAS_N,
-         sdram_cke    => SDRAM_CKE,
-         sdram_cs_n   => SDRAM_CS_N,
-         sdram_dq     => SDRAM_DQ,
-         sdram_dqm    => sdram_dqm,
-         sdram_ras_n  => SDRAM_RAS_N,
-         sdram_we_n   => SDRAM_WE_N
+         sdram_addr  => SDRAM_ADDR,
+         sdram_ba    => sdram_ba,
+         sdram_cas_n => SDRAM_CAS_N,
+         sdram_cke   => SDRAM_CKE,
+         sdram_cs_n  => SDRAM_CS_N,
+         sdram_dq    => SDRAM_DQ,
+         sdram_dqm   => sdram_dqm,
+         sdram_ras_n => SDRAM_RAS_N,
+         sdram_we_n  => SDRAM_WE_N
       );
 
    SDRAM_BA_1 <= sdram_ba(1);

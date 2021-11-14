@@ -52,16 +52,16 @@ entity top is
       --
       -- Input clock 
       --
-      CLOCK_50      : in  std_logic;
+      CLOCK_50    : in  std_logic;
 
       --
       -- JTAG TAP
       --
-      nTRST_i       : in  std_logic;
-      TCK_i         : in  std_logic;
-      TDI_i         : in  std_logic; 
-      TDO_o         : out std_logic;
-      TMS_i         : in  std_logic;
+      nTRST_i     : in  std_logic;
+      TCK_i       : in  std_logic;
+      TDI_i       : in  std_logic; 
+      TDO_o       : out std_logic;
+      TMS_i       : in  std_logic;
 
       --
       -- SDRAM interface,
@@ -69,35 +69,35 @@ entity top is
       -- Reference is made to Zentel datasheet:
       -- A3V64S40ETP, Revision 1.2, Mar., 2010
       --        
-      SDRAM_CLK     : out   std_logic;                      -- Master Clock
-      SDRAM_CKE     : out   std_logic;                      -- Clock Enable    
-      SDRAM_CS_N    : out   std_logic;                      -- Chip Select
-      SDRAM_RAS_N   : out   std_logic;                      -- Row Address Strobe
-      SDRAM_CAS_N   : out   std_logic;                      -- Column Address Strobe
-      SDRAM_WE_N    : out   std_logic;                      -- Write Enable
-      SDRAM_DQ      : inout std_logic_vector(15 downto 0);  -- Data I/O (16 bits)
-      SDRAM_DQML    : out   std_logic;                      -- Output Disable / Write Mask (low)
-      SDRAM_DQMU    : out   std_logic;                      -- Output Disable / Write Mask (high)
-      SDRAM_ADDR    : out   std_logic_vector(11 downto 0);  -- Address Input (12 bits)
-      SDRAM_BA_0    : out   std_logic;                      -- Bank Address 0
-      SDRAM_BA_1    : out   std_logic;                      -- Bank Address 1
+      SDRAM_CLK   : out   std_logic;                        -- Master Clock
+      SDRAM_CKE   : out   std_logic;                        -- Clock Enable    
+      SDRAM_CS_N  : out   std_logic;                        -- Chip Select
+      SDRAM_RAS_N : out   std_logic;                        -- Row Address Strobe
+      SDRAM_CAS_N : out   std_logic;                        -- Column Address Strobe
+      SDRAM_WE_N  : out   std_logic;                        -- Write Enable
+      SDRAM_DQ    : inout std_logic_vector(15 downto 0);    -- Data I/O (16 bits)
+      SDRAM_DQML  : out   std_logic;                        -- Output Disable / Write Mask (low)
+      SDRAM_DQMU  : out   std_logic;                        -- Output Disable / Write Mask (high)
+      SDRAM_ADDR  : out   std_logic_vector(11 downto 0);    -- Address Input (12 bits)
+      SDRAM_BA_0  : out   std_logic;                        -- Bank Address 0
+      SDRAM_BA_1  : out   std_logic;                        -- Bank Address 1
 
       --
       -- LEDs, green and red
       --
-      LED_GREEN     : out   std_logic_vector(7 downto 0);
-      LED_RED       : out   std_logic_vector(9 downto 0);
+      LED_GREEN   : out   std_logic_vector(7 downto 0);
+      LED_RED     : out   std_logic_vector(9 downto 0);
       
       --
       -- Keys
       --
-      KEY           : in    std_logic_vector(3 downto 0);
+      KEY         : in    std_logic_vector(3 downto 0);
       
       --
       -- UART_0
       --
-      UART_TXD      : out   std_logic; 
-      UART_RXD      : in    std_logic 
+      UART_TXD    : out   std_logic; 
+      UART_RXD    : in    std_logic 
    );
 end entity top;
 
@@ -112,9 +112,9 @@ architecture syn of top is
    -- Define all constants here
    --------------------------------------------------------
 
-   constant  CLOCK_FREQUENCY   : natural := 50000000;    -- clock frequency of clk_i in Hz
-   constant  MEM_INT_IMEM_SIZE : natural := 16*1024;     -- size of processor-internal instruction memory in bytes
-   constant  MEM_INT_DMEM_SIZE : natural := 8*1024;      -- size of processor-internal data memory in bytes
+   constant CLOCK_FREQUENCY   : natural := 50000000;     -- clock frequency of clk_i in Hz
+   constant MEM_INT_IMEM_SIZE : natural := 16*1024;      -- size of processor-internal instruction memory in bytes
+   constant MEM_INT_DMEM_SIZE : natural := 8*1024;       -- size of processor-internal data memory in bytes
 
    
    --------------------------------------------------------
@@ -178,13 +178,13 @@ architecture syn of top is
          rst_i             : in  std_logic := '0';
 
          -- Wishbone
-         wbs_stb_i    : in  std_logic                      := '0';
-         wbs_we_i     : in  std_logic                      := '0';
-         wbs_sel_i    : in  std_logic_vector(03 downto 0)  := (others => '0');
-         wbs_adr_i    : in  std_logic_vector(27 downto 0)  := (others => '0');
-         wbs_dat_i    : in  std_logic_vector(31 downto 0)  := (others => '0');
-         wbs_dat_o    : out std_logic_vector(31 downto 0);  
-         wbs_ack_o    : out std_logic;
+         wbs_stb_i         : in  std_logic                      := '0';
+         wbs_we_i          : in  std_logic                      := '0';
+         wbs_sel_i         : in  std_logic_vector(03 downto 0)  := (others => '0');
+         wbs_adr_i         : in  std_logic_vector(27 downto 0)  := (others => '0');
+         wbs_dat_i         : in  std_logic_vector(31 downto 0)  := (others => '0');
+         wbs_dat_o         : out std_logic_vector(31 downto 0);  
+         wbs_ack_o         : out std_logic;
 
          -- Avalon Master
          avm_read_o        : out std_logic;
@@ -463,6 +463,7 @@ architecture syn of top is
    signal address          : std_logic_vector(27 downto 0);
    signal writedata        : std_logic_vector(31 downto 0);
    signal readdata         : std_logic_vector(31 downto 0);
+
    
 begin
 
@@ -643,13 +644,13 @@ begin
          wbs_ack_o         => wbs1_ack_o,
 
          -- Avalon Master
-         avm_read_o         => read,
-         avm_write_o        => write,
-         avm_waitrequest_i  => waitrequest,
-         avm_byteenable_o   => byteenable,
-         avm_address_o      => address,
-         avm_writedata_o    => writedata,
-         avm_readdata_i     => readdata
+         avm_read_o        => read,
+         avm_write_o       => write,
+         avm_waitrequest_i => waitrequest,
+         avm_byteenable_o  => byteenable,
+         avm_address_o     => address,
+         avm_writedata_o   => writedata,
+         avm_readdata_i    => readdata
       );
 
    
