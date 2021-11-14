@@ -12,8 +12,8 @@
 
 | Region  | Start Address | End Address | Size (bytes) | Description |
 | :------ | :------------ | :---------- | :----------- | :---------- |
-| IMEM    | 0x00000000    | 0x0000FFFF  | 64K          | TCM On-chip RAM |
-| DMEM    | 0x80000000    | 0x80007FFF  | 32K          | TCM On-chip RAM |
+| IMEM    | 0x00000000    | 0x0001FFFF  | 128K         | TCM On-chip RAM |
+| DMEM    | 0x80000000    | 0x8000FFFF  | 64K          | TCM On-chip RAM |
 | QSYS    | 0x90000000    | 0x9FFFFFFF  | 256MB        | Accessible via the Wishbone to Avalon Master |
 
 #### Qsys Address Map:
