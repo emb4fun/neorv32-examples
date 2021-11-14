@@ -1,0 +1,171 @@
+# -------------------------------------------------------------------------- #
+#
+# Copyright (C) 1991-2015 Altera Corporation. All rights reserved.
+# Your use of Altera Corporation's design tools, logic functions 
+# and other software and tools, and its AMPP partner logic 
+# functions, and any output files from any of the foregoing 
+# (including device programming or simulation files), and any 
+# associated documentation or information are expressly subject 
+# to the terms and conditions of the Altera Program License 
+# Subscription Agreement, the Altera Quartus II License Agreement,
+# the Altera MegaCore Function License Agreement, or other 
+# applicable license agreement, including, without limitation, 
+# that your use is for the sole purpose of programming logic 
+# devices manufactured by Altera and sold by Altera or its 
+# authorized distributors.  Please refer to the applicable 
+# agreement for further details.
+#
+# -------------------------------------------------------------------------- #
+#
+# Quartus II 64-Bit
+# Version 15.0.2 Build 153 07/15/2015 SJ Web Edition
+# Date created = 11:01:22  November 14, 2021
+#
+# -------------------------------------------------------------------------- #
+#
+# Notes:
+#
+# 1) The default values for assignments are stored in the file:
+#		c5g-neorv32-blinky_assignment_defaults.qdf
+#    If this file doesn't exist, see file:
+#		assignment_defaults.qdf
+#
+# 2) Altera recommends that you do not modify this file. This
+#    file is updated automatically by the Quartus II software
+#    and any changes you make may be lost or overwritten.
+#
+# -------------------------------------------------------------------------- #
+
+
+set_global_assignment -name FAMILY "Cyclone V"
+set_global_assignment -name DEVICE 5CGXFC5C6F27C7
+set_global_assignment -name TOP_LEVEL_ENTITY top
+set_global_assignment -name ORIGINAL_QUARTUS_VERSION 15.0.2
+set_global_assignment -name PROJECT_CREATION_TIME_DATE "14:10:00  NOVEMBER 14, 2021"
+set_global_assignment -name LAST_QUARTUS_VERSION 15.0.2
+set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
+set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 256
+set_global_assignment -name ENABLE_OCT_DONE OFF
+set_global_assignment -name ENABLE_CONFIGURATION_PINS OFF
+set_global_assignment -name ENABLE_BOOT_SEL_PIN OFF
+set_global_assignment -name USE_CONFIGURATION_DEVICE ON
+set_global_assignment -name CRC_ERROR_OPEN_DRAIN ON
+set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -rise
+set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -fall
+set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -rise
+set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -fall
+set_global_assignment -name ACTIVE_SERIAL_CLOCK FREQ_100MHZ
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
+set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "2.5 V"
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+
+
+#============================================================
+# CLOCK
+#============================================================
+#set_location_assignment PIN_U12 -to CLOCK_125_p
+set_location_assignment PIN_R20 -to CLOCK_50_B5B
+#set_location_assignment PIN_N20 -to CLOCK_50_B6A
+#set_location_assignment PIN_H12 -to CLOCK_50_B7A
+#set_location_assignment PIN_M10 -to CLOCK_50_B8A
+
+#set_instance_assignment -name IO_STANDARD LVDS -to CLOCK_125_p
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to CLOCK_50_B5B
+#set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to CLOCK_50_B6A
+#set_instance_assignment -name IO_STANDARD "2.5 V" -to CLOCK_50_B7A
+#set_instance_assignment -name IO_STANDARD "2.5 V" -to CLOCK_50_B8A
+
+
+#============================================================
+# RESET
+#============================================================
+set_location_assignment PIN_AB24 -to FPGA_RESET_N
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FPGA_RESET_N
+
+
+#============================================================
+# JTAG
+#============================================================
+set_location_assignment PIN_U22 -to nTRST_i
+set_location_assignment PIN_T21 -to TCK_i
+set_location_assignment PIN_R8 -to TDI_i
+set_location_assignment PIN_AA6 -to TDO_o
+set_location_assignment PIN_R10 -to TMS_i
+#set_location_assignment PIN_AD6 -to nRESET_i
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to nTRST_i
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TCK_i
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TDI_i
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TDO_o
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to TMS_i
+#set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to nRESET_i
+
+set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to TDO_o
+set_instance_assignment -name SLEW_RATE 1 -to TDO_o
+
+
+#============================================================
+# LEDG
+#============================================================
+set_location_assignment PIN_L7 -to LEDG[0]
+set_location_assignment PIN_K6 -to LEDG[1]
+set_location_assignment PIN_D8 -to LEDG[2]
+set_location_assignment PIN_E9 -to LEDG[3]
+set_location_assignment PIN_A5 -to LEDG[4]
+set_location_assignment PIN_B6 -to LEDG[5]
+set_location_assignment PIN_H8 -to LEDG[6]
+set_location_assignment PIN_H9 -to LEDG[7]
+
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDG*
+set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to LEDG*
+set_instance_assignment -name SLEW_RATE 1 -to LEDG*
+
+
+#============================================================
+# LEDR
+#============================================================
+set_location_assignment PIN_F7 -to LEDR[0]
+set_location_assignment PIN_F6 -to LEDR[1]
+set_location_assignment PIN_G6 -to LEDR[2]
+set_location_assignment PIN_G7 -to LEDR[3]
+set_location_assignment PIN_J8 -to LEDR[4]
+set_location_assignment PIN_J7 -to LEDR[5]
+set_location_assignment PIN_K10 -to LEDR[6]
+set_location_assignment PIN_K8 -to LEDR[7]
+set_location_assignment PIN_H7 -to LEDR[8]
+set_location_assignment PIN_J10 -to LEDR[9]
+
+set_instance_assignment -name IO_STANDARD "2.5 V" -to LEDR*
+set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to LEDR*
+set_instance_assignment -name SLEW_RATE 1 -to LEDR*
+
+
+#============================================================
+# UART0
+#============================================================
+set_location_assignment PIN_E26 -to UART0_TXD
+set_location_assignment PIN_M26 -to UART0_RXD
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to UART0_TXD
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to UART0_RXD
+
+set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to UART0_TXD
+set_instance_assignment -name SLEW_RATE 1 -to UART0_TXD
+
+
+#============================================================
+
+set_global_assignment -name QIP_FILE src/pll/pll_sys.qip
+set_global_assignment -name QIP_FILE src/neorv32.qip
+set_global_assignment -name VHDL_FILE src/top.vhd
+set_global_assignment -name CDF_FILE "epcs-erase.cdf"
+set_global_assignment -name SDC_FILE "c5g-neorv32-blinky.sdc"
+set_global_assignment -name CDF_FILE "c5g-neorv32-blinky.cdf"
+
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
