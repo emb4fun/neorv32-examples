@@ -1,4 +1,0 @@
-[submodule "neorv32"]
-	path = neorv32
-	url = https://github.com/emb4fun/neorv32.git
-	branch = neorv32-examples
