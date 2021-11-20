@@ -55,7 +55,7 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="108" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../src/main.c" selected="1" top="93" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="108" useTextEdit="1" openedFrom="" useBinaryEdit="0" left="0" path="../src/main.c" selected="1" top="103" codecName="Default"/>
  </Files>
  <RISCVCrossStudioWindow activeProject="de0n-neorv32-blinky" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="TCM Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="D:/Projekte/GitHub/neorv32-examples/neorv32/sw/lib/source" debugSearchPath="" autoConnectCapabilities="1151"/>
 </session>

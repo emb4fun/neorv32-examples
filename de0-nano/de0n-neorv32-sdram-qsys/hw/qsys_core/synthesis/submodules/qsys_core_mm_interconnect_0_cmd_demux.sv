@@ -1,4 +1,4 @@
-// (C) 2001-2012 Altera Corporation. All rights reserved.
+// (C) 2001-2015 Altera Corporation. All rights reserved.
 // Your use of Altera Corporation's design tools, logic functions and other 
 // software and tools, and its AMPP partner logic functions, and any output 
 // files any of the foregoing (including device programming or simulation 
@@ -11,10 +11,10 @@
 // agreement for further details.
 
 
-// $Id: //acds/rel/11.1sp2/ip/merlin/altera_merlin_demultiplexer/altera_merlin_demultiplexer.sv.terp#1 $
+// $Id: //acds/rel/15.0/ip/merlin/altera_merlin_demultiplexer/altera_merlin_demultiplexer.sv.terp#1 $
 // $Revision: #1 $
-// $Date: 2011/11/10 $
-// $Author: max $
+// $Date: 2015/02/08 $
+// $Author: swbranch $
 
 // -------------------------------------
 // Merlin Demultiplexer
@@ -27,8 +27,8 @@
 
 // ------------------------------------------
 // Generation parameters:
-//   output_name:         qsys_core_cmd_xbar_demux
-//   ST_DATA_W:           83
+//   output_name:         qsys_core_mm_interconnect_0_cmd_demux
+//   ST_DATA_W:           102
 //   ST_CHANNEL_W:        1
 //   NUM_OUTPUTS:         1
 //   VALID_WIDTH:         1
@@ -40,13 +40,13 @@
 // 15610 - Warning: Design contains x input pin(s) that do not drive logic
 //------------------------------------------
 
-module qsys_core_cmd_xbar_demux
+module qsys_core_mm_interconnect_0_cmd_demux
 (
     // -------------------
     // Sink
     // -------------------
     input  [1-1      : 0]   sink_valid,
-    input  [83-1    : 0]   sink_data, // ST_DATA_W=83
+    input  [102-1    : 0]   sink_data, // ST_DATA_W=102
     input  [1-1 : 0]   sink_channel, // ST_CHANNEL_W=1
     input                         sink_startofpacket,
     input                         sink_endofpacket,
@@ -56,7 +56,7 @@ module qsys_core_cmd_xbar_demux
     // Sources 
     // -------------------
     output reg                      src0_valid,
-    output reg [83-1    : 0] src0_data, // ST_DATA_W=83
+    output reg [102-1    : 0] src0_data, // ST_DATA_W=102
     output reg [1-1 : 0] src0_channel, // ST_CHANNEL_W=1
     output reg                      src0_startofpacket,
     output reg                      src0_endofpacket,
@@ -93,6 +93,7 @@ module qsys_core_cmd_xbar_demux
     // Backpressure
     // -------------------
     assign ready_vector[0] = src0_ready;
+
     assign sink_ready = |(sink_channel & ready_vector);
 
 endmodule

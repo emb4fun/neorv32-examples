@@ -224,7 +224,7 @@ begin
          --
          -- This value must be provided, as it is used to calculate the number of
          -- clock cycles required for the other timing values.
-         CLK_FREQ         => 96.0,
+         CLK_FREQ         => 100.0,
 
          -- 32-bit controller interface
          ADDR_WIDTH       => 23,

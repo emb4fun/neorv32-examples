@@ -300,9 +300,9 @@ module qsys_core_sdram (
   always @(posedge clk or negedge reset_n)
     begin
       if (reset_n == 0)
-          refresh_counter <= 19200;
+          refresh_counter <= 20000;
       else if (refresh_counter == 0)
-          refresh_counter <= 749;
+          refresh_counter <= 781;
       else 
         refresh_counter <= refresh_counter - 1'b1;
     end
@@ -373,7 +373,7 @@ module qsys_core_sdram (
                   i_cmd <= {{1{1'b0}},3'h1};
                   i_refs <= i_refs + 1'b1;
                   i_state <= 3'b011;
-                  i_count <= 6;
+                  i_count <= 7;
                   // Count up init_refresh_commands
                   if (i_refs == 3'h7)
                       i_next <= 3'b111;
@@ -602,7 +602,7 @@ module qsys_core_sdram (
                   ack_refresh_request <= 1'b1;
                   m_state <= 9'b000000100;
                   m_cmd <= {{1{1'b0}},3'h1};
-                  m_count <= 6;
+                  m_count <= 7;
                   m_next <= 9'b000000001;
               end // 9'b010000000 
           

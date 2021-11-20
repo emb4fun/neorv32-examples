@@ -92,7 +92,7 @@ architecture syn of top is
    -- Define all constants here
    --------------------------------------------------------
 
-   constant CLOCK_FREQUENCY   : natural := 96000000;  -- clock frequency of clk_i in Hz
+   constant CLOCK_FREQUENCY   : natural := 100000000; -- clock frequency of clk_i in Hz
    constant MEM_INT_IMEM_SIZE : natural := 32*1024;   -- size of processor-internal instruction memory in bytes
    constant MEM_INT_DMEM_SIZE : natural := 16*1024;   -- size of processor-internal data memory in bytes
 
@@ -108,6 +108,7 @@ architecture syn of top is
       port ( 
          inclk0 : in  std_logic := '0';
          c0     : out std_logic;
+         c1     : out std_logic;
          locked : out std_logic 
       );
    end component pll_sys;
@@ -323,6 +324,7 @@ begin
       port map ( 
          inclk0 => CLOCK_50,
          c0     => sys_clk,
+         c1     => open,
          locked => pll_locked
       );
 

@@ -5,8 +5,8 @@
 | Board    | [Terasic DE0-Nano](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=139&No=593) |
 | :------- | :------------- |
 | FPGA     | Cyclone IV `EP4CE22F17C6N` |
-| Quartus  | 11.1sp2        |
-| clk_i    | 96 MHz         |
+| Quartus  | 15.0.2         |
+| clk_i    | 100 MHz        |
 | Terminal | 19200, 8, N, 1 |
 
 #### Memory Address Map:
