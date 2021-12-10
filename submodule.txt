@@ -1,5 +1,0 @@
-
-To update the submodule type:
-
-   git submodule update --init --recursive
-

@@ -12,6 +12,7 @@
       build_intermediate_directory="$(Configuration)"
       build_output_directory="$(Configuration)"
       c_user_include_directories="..\\..\\..\\..\\neorv32\\sw\\lib\\include"
+      debug_register_definition_file="$(ProjectDir)/neorv32_Registers.xml"
       debug_target_connection="J-Link"
       heap_size="256"
       linker_memory_map_file="$(ProjectDir)/neorv32_MemoryMap.xml"

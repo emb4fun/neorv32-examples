@@ -1,0 +1,43 @@
+# doit databases
+/.doit.db.*
+
+# python
+__pycache__
+
+# generated application files
+*.bin
+*.o
+*.elf
+*.asm
+*.out
+*.hex
+*_image.vhd
+
+# keep default VHDL memory images
+!rtl/core/*_image.vhd
+
+# host executables
+sw/image_gen/image_gen
+sw/image_gen/image_gen.exe
+
+# temporary/legacy files/folders
+*.tmp
+~*
+
+# generated documentation stuff
+/docs/doxygen_build/
+/docs/.asciidoctor/
+/docs/public/
+/docs/figures/diag-*.svg
+
+# compiled ghdl stuff
+*.cf
+*.o
+
+# example bitstreams
+/setups/examples/*.bit
+/setups/examples/*.svf
+
+# riscv-arch-test
+
+/sim/work/

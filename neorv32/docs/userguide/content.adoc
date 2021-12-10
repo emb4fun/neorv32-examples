@@ -1,0 +1,54 @@
+Let's Get It Started!
+
+This user guide uses the NEORV32 project _as is_ from the official `neorv32` repository.
+To make your first NEORV32 project run, follow the guides from the upcoming sections. It is recommended to
+follow these guides step by step and eventually in the presented order.
+
+[TIP]
+This guide uses the minimalistic and platform/toolchain agnostic SoC test setups from
+`rtl/test_setups` for illustration. You can use one of the provided test setups for
+your first FPGA tests. Alternatively, have a look at the `setups` folder,
+which provides more sophisticated example setups for various FPGAs/FPGA boards and toolchains.
+
+
+include::sw_toolchain_setup.adoc[]
+
+include::general_hw_setup.adoc[]
+
+include::general_sw_framework_setup.adoc[]
+
+include::application_program_compilation.adoc[]
+
+include::executable_upload.adoc[]
+
+include::installing_an_executable.adoc[]
+
+include::new_application_project.adoc[]
+
+include::enabling_riscv_extensions.adoc[]
+
+include::application_specific_configuration.adoc[]
+
+include::adding_custom_hw_modules.adoc[]
+
+include::customizing_the_bootloader.adoc[]
+
+include::programming_an_external_spi_flash_via_bootloader.adoc[]
+
+include::packaging_vivado.adoc[]
+
+include::simulating_the_processor.adoc[]
+
+include::building_the_documentation.adoc[]
+
+include::zephyr_support.adoc[]
+
+include::free_rtos_support.adoc[]
+
+include::riscv_architecture_tests.adoc[]
+
+include::debugging_with_ocd.adoc[]
+
+
+
+include::../legal.adoc[]

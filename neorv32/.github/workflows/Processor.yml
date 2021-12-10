@@ -1,0 +1,77 @@
+# Check NEORV32 software framework and test processor
+
+name: Processor
+
+on:
+  push:
+    branches:
+    - master
+    paths:
+    - 'rtl/**'
+    - 'sw/**'
+    - 'sim/**'
+  pull_request:
+    branches:
+    - master
+    paths:
+    - 'rtl/**'
+    - 'sw/**'
+    - 'sim/**'
+  workflow_dispatch:
+
+jobs:
+
+
+  Processor:
+    runs-on: ubuntu-latest
+    name: '🐧 Ubuntu | Shell script'
+
+    steps:
+
+    - name: '🧰 Repository Checkout'
+      uses: actions/checkout@v2
+
+    - name: '⚙️ Build Software Framework Tests'
+      uses: docker://ghcr.io/stnolting/neorv32/sim
+      with:
+        args: ./do.py BuildAndInstallSoftwareFrameworkTests
+
+    - name: '🚧 Run Processor Hardware Tests with shell script'
+      uses: docker://ghcr.io/stnolting/neorv32/sim
+      with:
+        args: ./sim/simple/ghdl.sh
+
+
+  VUnit-Container:
+    runs-on: ubuntu-latest
+    name: '🛳️ Container | VUnit'
+
+    steps:
+
+    - name: '🧰 Repository Checkout'
+      uses: actions/checkout@v2
+
+    - name: '⚙️ Build and install Processor Check software'
+      uses: docker://ghcr.io/stnolting/neorv32/sim
+      with:
+        args: >-
+          make -C sw/example/processor_check
+          clean_all
+          USER_FLAGS+=-DRUN_CHECK
+          USER_FLAGS+=-DUART0_SIM_MODE
+          USER_FLAGS+=-DSUPPRESS_OPTIONAL_UART_PRINT
+          MARCH=rv32imac
+          info
+          all
+
+    - name: '📤 Archive Processor Check application image'
+      uses: actions/upload-artifact@v2
+      with:
+        name: application
+        path: rtl/core/neorv32_application_image.vhd
+
+    - name: '🚧 Run Processor Hardware Tests with VUnit'
+      uses: VUnit/vunit_action@master
+      with:
+        image: ghcr.io/stnolting/neorv32/sim
+        cmd: ./sim/run.py --ci-mode -v

@@ -1,0 +1,39 @@
+<<<
+:sectnums:
+==== Bootloader ROM (BOOTROM)
+
+[cols="<3,<3,<4"]
+[frame="topbot",grid="none"]
+|=======================
+| Hardware source file(s): | neorv32_boot_rom.vhd | 
+| Software driver file(s): | none             | _implicitly used_
+| Top entity port:         | none             | 
+| Configuration generics:  | _INT_BOOTLOADER_EN_ | implement processor-internal bootloader when _true_
+| CPU interrupts:          | none             | 
+|=======================
+
+[NOTE]
+The default `neorv32_boot_rom.vhd` HDL source file provides a _generic_ memory design that infers embedded
+memory for _larger_ memory configurations. You might need to replace/modify the source file in order to use
+platform-specific features (like advanced memory resources) or to improve technology mapping and/or timing.
+
+This HDL modules provides a read-only memory that contain the executable code image of the bootloader.
+If the <<_int_bootloader_en>> generic is _true_ this module will be implemented and the CPU boot address
+is modified to directly execute the code from the bootloader ROM after reset.
+
+The bootloader ROM is located at address `0xFFFF0000` and can occupy a address space of up to 32kB. The base
+address as well as the maximum address space size are fixed and cannot (should not!) be modified as this
+might address collision with other processor modules.
+
+The bootloader memory is _read-only_ and is automatically initialized with the bootloader executable image
+`rtl/core/neorv32_bootloader_image.vhd` during synthesis. The actual _physical_ size of the ROM is also
+determined via synthesis and expanded to the next power of two. For example, if the bootloader code requires
+10kB of storage, a ROM with 16kB will be generated. The maximum size must not exceed 32kB.
+
+.Bootloader - Software
+[TIP]
+See section <<_bootloader>> for more information regarding the actual bootloader software/executable itself.
+
+.Boot Configuration
+[TIP]
+See section <<_boot_configuration>> for more information regarding the processor's different boot scenarios.

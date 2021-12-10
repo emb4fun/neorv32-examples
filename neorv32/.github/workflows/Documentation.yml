@@ -1,0 +1,103 @@
+name: 'Documentation'
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+
+
+  doxygen:
+    runs-on: ubuntu-latest
+    name: 'SW Framework'
+
+    steps:
+
+    - name: '🧰 Repository Checkout'
+      uses: actions/checkout@v2
+
+    - name: '🛠️ Modifying Doxyfile'
+      run: |
+        ls -al ./docs
+        sed -i 's/$(PWD)\/../$(GITHUB_WORKSPACE)/g' ./docs/Doxyfile
+
+    - name: '📚 Generate Doxygen Documentation'
+      uses: mattnotmitt/doxygen-action@v1.2.1
+      with:
+        working-directory: '.'
+        doxyfile-path: 'docs/Doxyfile'
+
+    - name: '📤 Upload Artifact'
+      uses: actions/upload-artifact@v2
+      with:
+        name: NEORV32-Doxygen
+        path: doxygen_build/html
+
+
+  asciidoctor:
+    runs-on: ubuntu-latest
+    name: 'Datasheet'
+
+    steps:
+
+    - name: '🧰 Repository Checkout'
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: '🐍 Install doit'
+      run: pip install doit
+
+    - name: '📚 Build Datasheet and User Guide (PDF and HTML)'
+      run: ./do.py Documentation container
+
+    - name: '📤 Upload Artifact: HTML'
+      uses: actions/upload-artifact@v2
+      with:
+        name: NEORV32
+        path: docs/public
+
+
+  deploy:
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || contains(github.ref, 'refs/tags/'))
+    needs:
+      - doxygen
+      - asciidoctor
+    runs-on: ubuntu-latest
+    name: 'Deploy to Releases and Pages'
+
+    steps:
+
+    - name: '🧰 Repository Checkout'
+      uses: actions/checkout@v2
+
+    - name: '📥 Download Artifacts'
+      uses: actions/download-artifact@v2
+
+    - name: '🛠️ Organise public subdir and create a tarball'
+      run: |
+        mv NEORV32 public
+        mv public/pdf ./
+        mv NEORV32-Doxygen public/sw
+        tar zvcf NEORV32-SITE-nightly.tar.gz -C public .
+        cd pdf
+        mv NEORV32.pdf NEORV32-nightly.pdf
+        mv NEORV32_UserGuide.pdf NEORV32_UserGuide-nightly.pdf
+
+    # Tagged: create a pre-release or a release (semver)
+    # Untagged: update the assets of pre-release 'nightly'
+    - name: '📦 Deploy to GitHub-Releases'
+      uses: eine/tip@master
+      with:
+        token: ${{ github.token }}
+        tag: 'nightly'
+        files: |
+          NEORV32-SITE-nightly.tar.gz
+          pdf/NEORV32*nightly.pdf
+
+    - name: '🐍 Install doit'
+      run: pip install doit
+
+    - name: '🚀 Deploy to GitHub-Pages'
+      run: ./do.py DeployToGitHubPages "update ${{ github.sha }}"
