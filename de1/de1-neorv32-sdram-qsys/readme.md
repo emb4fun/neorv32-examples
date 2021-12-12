@@ -39,4 +39,4 @@ A memory test was also implemented. The terminal output looks like:
 
 ## Embedded Studio for RISC-V
 
-A description of how to use Embedded Studio for RISC-V will be available soon.
+A description of how to use Embedded Studio for RISC-V can be find [here](https://www.emb4fun.de/riscv/ses4rv/index.html).

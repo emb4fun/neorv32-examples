@@ -28,7 +28,9 @@ on the LEDs.
 The description for the original blinky can be found [here](https://github.com/emb4fun/neorv32/tree/master/setups/quartus/de0-nano-test-setup).
 
 ## Credits
+
 All credit must go to Stephan Nolting who has providing the [NEORV32](https://github.com/stnolting/neorv32) project. I've only made minor changes against the original blinky project here.
 
 ## Embedded Studio for RISC-V
-A description of how to use Embedded Studio for RISC-V will be available soon.
+
+A description of how to use Embedded Studio for RISC-V can be find [here](https://www.emb4fun.de/riscv/ses4rv/index.html).
