@@ -22,7 +22,6 @@
   <ProjectSessionItem path="de0n-neorv32-blinky"/>
   <ProjectSessionItem path="de0n-neorv32-blinky;de0n-neorv32-blinky"/>
   <ProjectSessionItem path="de0n-neorv32-blinky;de0n-neorv32-blinky;Source Files"/>
-  <ProjectSessionItem path="de0n-neorv32-blinky;de0n-neorv32-blinky;Source Files;lib"/>
   <ProjectSessionItem path="de0n-neorv32-blinky;de0n-neorv32-blinky;Source Files;src"/>
  </Project>
  <Register1>
@@ -56,8 +55,7 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="126" useTextEdit="1" path="../src/main.c" left="0" top="108" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="248" useTextEdit="1" path="../../../../neorv32/sw/lib/source/neorv32_cpu.c" left="0" selected="1" top="235" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="126" useTextEdit="1" path="../src/main.c" left="0" selected="1" top="101" codecName="Default"/>
  </Files>
  <EMStudioWindow activeProject="de0n-neorv32-blinky" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="TCM Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="" debugSearchPath="" autoConnectCapabilities="3199"/>
 </session>

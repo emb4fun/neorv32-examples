@@ -55,7 +55,7 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="220" useTextEdit="1" path="../src/main.c" left="0" selected="1" top="213" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="220" useTextEdit="1" path="../src/main.c" left="0" selected="1" top="195" codecName="Default"/>
  </Files>
  <EMStudioWindow activeProject="de1-neorv32-sdram-qsys" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="TCM Debug" sessionSettings="" debugSearchFileMap="" fileDialogInitialDirectory="" debugSearchPath="" autoConnectCapabilities="3199"/>
 </session>
