@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2022, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 
 const uint32_t signature = 0x4788CAFE;
@@ -43,18 +44,19 @@ const uint32_t signature = 0x4788CAFE;
 int main(int argc, char *argv[]) {
 
   if ((argc != 4) && (argc != 5)){
-  	printf("<<< NEORV32 executable image generator >>>\n"
-	         "by Stephan Nolting\n"
-	         "Three arguments are required.\n"
-	         "1st: Option\n"
-	         " -app_bin : Generate application executable binary (binary file, little-endian, with header) \n"
-	         " -app_hex : Generate application raw executable (hex file, no header)\n"
-	         " -app_img : Generate application raw executable memory image (vhdl file, no header)\n"
-	         " -bld_img : Generate bootloader raw executable memory image (vdhl file, no header)\n"
-		       "2nd: Input file (raw binary image)\n"
-		       "3rd: Output file\n"
-		       "4th: Project folder (optional)\n");
-  	return 0;
+    printf("<<< NEORV32 executable image generator >>>\n"
+           "by Stephan Nolting\n"
+           "Three arguments are required.\n"
+           "1st: Option\n"
+           " -app_bin : Generate application executable binary (binary file, little-endian, with header) \n"
+           " -app_img : Generate application raw executable memory image (vhdl package body file, no header)\n"
+           " -raw_hex : Generate application raw executable (ASCII hex file, no header)\n"
+           " -raw_bin : Generate application raw executable (binary file, no header)\n"
+           " -bld_img : Generate bootloader raw executable memory image (vhdl package body file, no header)\n"
+           "2nd: Input file (raw binary image)\n"
+           "3rd: Output file\n"
+           "4th: Project folder (optional)\n");
+    return 0;
   }
 
   FILE *input, *output;
@@ -71,11 +73,13 @@ int main(int argc, char *argv[]) {
     option = 2;
   else if (strcmp(argv[1], "-bld_img") == 0)
     option = 3;
-  else if (strcmp(argv[1], "-app_hex") == 0)
+  else if (strcmp(argv[1], "-raw_hex") == 0)
     option = 4;
+  else if (strcmp(argv[1], "-raw_bin") == 0)
+    option = 5;
   else {
-  	printf("Invalid option!");
-  	return 1;
+    printf("Invalid option!");
+    return 1;
   }
 
   // open input file
@@ -100,6 +104,37 @@ int main(int argc, char *argv[]) {
 
 
 // ------------------------------------------------------------
+// Try to find out targeted CPU configuration
+// via MARCH environment variable
+// ------------------------------------------------------------
+  char string_march[64] = "default";
+  char *envvar_march = "MARCH";
+  if (getenv(envvar_march)) {
+    if (snprintf(string_march, 64, "%s", getenv(envvar_march)) >= 64){
+      strcpy(string_march, "default");
+    }
+  }
+
+
+// ------------------------------------------------------------
+// Get image's compilation date and time
+// ------------------------------------------------------------
+  time_t time_current;
+  time(&time_current);
+  struct tm *time_local = localtime(&time_current);
+  char compile_time[64];
+
+  snprintf(compile_time, 64, "%02d.%02d.%d %02d:%02d:%02d",
+    time_local->tm_mday,
+    time_local->tm_mon + 1,
+    time_local->tm_year + 1900,
+    time_local->tm_hour,
+    time_local->tm_min,
+    time_local->tm_sec
+  );
+
+
+// ------------------------------------------------------------
 // Get size of application (in bytes)
 // ------------------------------------------------------------
   fseek(input, 0L, SEEK_END);
@@ -112,27 +147,27 @@ int main(int argc, char *argv[]) {
 
 
 // ------------------------------------------------------------
-// Generate BINARY executable (with header!!!) for bootloader upload
+// Generate BINARY executable (with header!) for bootloader upload
 // ------------------------------------------------------------
   if (option == 1) {
 
     // reserve header space for signature
-    fputc(char(0), output);
-    fputc(char(0), output);
-    fputc(char(0), output);
-    fputc(char(0), output);
+    fputc(0, output);
+    fputc(0, output);
+    fputc(0, output);
+    fputc(0, output);
 
     // reserve header space for size
-    fputc(char(0), output);
-    fputc(char(0), output);
-    fputc(char(0), output);
-    fputc(char(0), output);
+    fputc(0, output);
+    fputc(0, output);
+    fputc(0, output);
+    fputc(0, output);
 
     // reserve header space for checksum
-    fputc(char(0), output);
-    fputc(char(0), output);
-    fputc(char(0), output);
-    fputc(char(0), output);
+    fputc(0, output);
+    fputc(0, output);
+    fputc(0, output);
+    fputc(0, output);
 
     buffer[0] = 0;
     buffer[1] = 0;
@@ -176,97 +211,22 @@ int main(int argc, char *argv[]) {
 
 
 // ------------------------------------------------------------
-// Generate APPLICATION's executable memory init file (no header!!!)
+// Generate APPLICATION's executable memory initialization file (no header!)
+// => VHDL package body
 // ------------------------------------------------------------
   if (option == 2) {
 
-	// header
-    sprintf(tmp_string, "-- The NEORV32 RISC-V Processor, https://github.com/stnolting/neorv32\n"
-	 					            "-- Auto-generated memory init file (for APPLICATION) from source file <%s/%s>\n"
-	 					            "-- Size: %lu bytes\n"
-						            "\n"
-						            "library ieee;\n"
-						            "use ieee.std_logic_1164.all;\n"
-						            "\n"
-                        "library neorv32;\n"
-                        "use neorv32.neorv32_package.all;\n"
-						            "\n"
-						            "package neorv32_application_image is\n"
-						            "\n"
-						            "  constant application_init_image : mem32_t := (\n", argv[4], argv[2], raw_exe_size);
-    fputs(tmp_string, output);
-
-	// data
-    buffer[0] = 0;
-    buffer[1] = 0;
-    buffer[2] = 0;
-    buffer[3] = 0;
-    i = 0;
-
-    while (i < (input_words-1)) {
-      if (fread(&buffer, sizeof(unsigned char), 4, input) != 0) {
-        tmp  = (uint32_t)(buffer[0] << 0);
-        tmp |= (uint32_t)(buffer[1] << 8);
-        tmp |= (uint32_t)(buffer[2] << 16);
-        tmp |= (uint32_t)(buffer[3] << 24);
-        sprintf(tmp_string, "    %08d => x\"%08x\",\n", i, (unsigned int)tmp);
-        fputs(tmp_string, output);
-        buffer[0] = 0;
-        buffer[1] = 0;
-        buffer[2] = 0;
-        buffer[3] = 0;
-        i++;
-      }
-      else {
-        printf("Unexpected input file end!\n");
-        break;
-      }
-    }
-
-    if (fread(&buffer, sizeof(unsigned char), 4, input) != 0) {
-      tmp  = (uint32_t)(buffer[0] << 0);
-      tmp |= (uint32_t)(buffer[1] << 8);
-      tmp |= (uint32_t)(buffer[2] << 16);
-      tmp |= (uint32_t)(buffer[3] << 24);
-      sprintf(tmp_string, "    %08d => x\"%08x\"\n", i, (unsigned int)tmp);
-      fputs(tmp_string, output);
-      buffer[0] = 0;
-      buffer[1] = 0;
-      buffer[2] = 0;
-      buffer[3] = 0;
-      i++;
-    }
-    else {
-      printf("Unexpected input file end!\n");
-    }
-
-	// end
-    sprintf(tmp_string, "  );\n"
-						            "\n"
-						            "end neorv32_application_image;\n");
-    fputs(tmp_string, output);
-  }
-
-
-// ------------------------------------------------------------
-// Generate BOOTLOADER's executable memory init file (no header!!!)
-// ------------------------------------------------------------
-  if (option == 3) {
-
-	// header
-    sprintf(tmp_string, "-- The NEORV32 RISC-V Processor, https://github.com/stnolting/neorv32\n"
-	 					            "-- Auto-generated memory init file (for BOOTLOADER) from source file <%s/%s>\n"
-	 					            "-- Size: %lu bytes\n"
-						            "\n"
-						            "library ieee;\n"
-						            "use ieee.std_logic_1164.all;\n"
-						            "\n"
-                        "library neorv32;\n"
-                        "use neorv32.neorv32_package.all;\n"
-						            "\n"
-						            "package neorv32_bootloader_image is\n"
-						            "\n"
-						            "  constant bootloader_init_image : mem32_t := (\n", argv[4], argv[2], raw_exe_size);
+    // header
+    sprintf(tmp_string, "-- The NEORV32 RISC-V Processor: https://github.com/stnolting/neorv32\n"
+                        "-- Auto-generated memory initialization file (for APPLICATION) from source file <%s/%s>\n"
+                        "-- Size: %lu bytes\n"
+                        "-- MARCH: %s\n"
+                        "-- Built: %s\n"
+                        "\n"
+                        "-- prototype defined in 'neorv32_package.vhd'\n"
+                        "package body neorv32_application_image is\n"
+                        "\n"
+                        "constant application_init_image : mem32_t := (\n", argv[4], argv[2], raw_exe_size, string_march, compile_time);
     fputs(tmp_string, output);
 
     // data
@@ -282,7 +242,7 @@ int main(int argc, char *argv[]) {
         tmp |= (uint32_t)(buffer[1] << 8);
         tmp |= (uint32_t)(buffer[2] << 16);
         tmp |= (uint32_t)(buffer[3] << 24);
-        sprintf(tmp_string, "    %08d => x\"%08x\",\n", i, (unsigned int)tmp);
+        sprintf(tmp_string, "x\"%08x\",\n", (unsigned int)tmp);
         fputs(tmp_string, output);
         buffer[0] = 0;
         buffer[1] = 0;
@@ -301,7 +261,7 @@ int main(int argc, char *argv[]) {
       tmp |= (uint32_t)(buffer[1] << 8);
       tmp |= (uint32_t)(buffer[2] << 16);
       tmp |= (uint32_t)(buffer[3] << 24);
-      sprintf(tmp_string, "    %08d => x\"%08x\"\n", i, (unsigned int)tmp);
+      sprintf(tmp_string, "x\"%08x\"\n", (unsigned int)tmp);
       fputs(tmp_string, output);
       buffer[0] = 0;
       buffer[1] = 0;
@@ -313,16 +273,87 @@ int main(int argc, char *argv[]) {
       printf("Unexpected input file end!\n");
     }
 
-	// end
-    sprintf(tmp_string, "  );\n"
-						            "\n"
-						            "end neorv32_bootloader_image;\n");
+    // end
+    sprintf(tmp_string, ");\n"
+                        "\n"
+                        "end neorv32_application_image;\n");
     fputs(tmp_string, output);
   }
 
 
 // ------------------------------------------------------------
-// Generate APPLICATION's executable hex file (no header!!!)
+// Generate BOOTLOADER's executable memory initialization file (no header!)
+// => VHDL package body
+// ------------------------------------------------------------
+  if (option == 3) {
+
+    // header
+    sprintf(tmp_string, "-- The NEORV32 RISC-V Processor: https://github.com/stnolting/neorv32\n"
+                        "-- Auto-generated memory initialization file (for BOOTLOADER) from source file <%s/%s>\n"
+                        "-- Size: %lu bytes\n"
+                        "-- MARCH: %s\n"
+                        "-- Built: %s\n"
+                        "\n"
+                        "-- prototype defined in 'neorv32_package.vhd'\n"
+                        "package body neorv32_bootloader_image is\n"
+                        "\n"
+                        "constant bootloader_init_image : mem32_t := (\n", argv[4], argv[2], raw_exe_size, string_march, compile_time);
+    fputs(tmp_string, output);
+
+    // data
+    buffer[0] = 0;
+    buffer[1] = 0;
+    buffer[2] = 0;
+    buffer[3] = 0;
+    i = 0;
+
+    while (i < (input_words-1)) {
+      if (fread(&buffer, sizeof(unsigned char), 4, input) != 0) {
+        tmp  = (uint32_t)(buffer[0] << 0);
+        tmp |= (uint32_t)(buffer[1] << 8);
+        tmp |= (uint32_t)(buffer[2] << 16);
+        tmp |= (uint32_t)(buffer[3] << 24);
+        sprintf(tmp_string, "x\"%08x\",\n", (unsigned int)tmp);
+        fputs(tmp_string, output);
+        buffer[0] = 0;
+        buffer[1] = 0;
+        buffer[2] = 0;
+        buffer[3] = 0;
+        i++;
+      }
+      else {
+        printf("Unexpected input file end!\n");
+        break;
+      }
+    }
+
+    if (fread(&buffer, sizeof(unsigned char), 4, input) != 0) {
+      tmp  = (uint32_t)(buffer[0] << 0);
+      tmp |= (uint32_t)(buffer[1] << 8);
+      tmp |= (uint32_t)(buffer[2] << 16);
+      tmp |= (uint32_t)(buffer[3] << 24);
+      sprintf(tmp_string, "x\"%08x\"\n", (unsigned int)tmp);
+      fputs(tmp_string, output);
+      buffer[0] = 0;
+      buffer[1] = 0;
+      buffer[2] = 0;
+      buffer[3] = 0;
+      i++;
+    }
+    else {
+      printf("Unexpected input file end!\n");
+    }
+
+    // end
+    sprintf(tmp_string, ");\n"
+                        "\n"
+                        "end neorv32_bootloader_image;\n");
+    fputs(tmp_string, output);
+  }
+
+
+// ------------------------------------------------------------
+// Generate raw APPLICATION's executable ASCII hex file (no header!!!)
 // ------------------------------------------------------------
   if (option == 4) {
 
@@ -331,7 +362,6 @@ int main(int argc, char *argv[]) {
     buffer[1] = 0;
     buffer[2] = 0;
     buffer[3] = 0;
-    i = 0;
 
     while(fread(&buffer, sizeof(unsigned char), 4, input) != 0) {
       tmp  = (uint32_t)(buffer[0] << 0);
@@ -343,6 +373,34 @@ int main(int argc, char *argv[]) {
     }
   }
 
+
+// ------------------------------------------------------------
+// Generate raw APPLICATION's executable binary file (no header!!!)
+// ------------------------------------------------------------
+  if (option == 5) {
+
+    // data
+    buffer[0] = 0;
+    buffer[1] = 0;
+    buffer[2] = 0;
+    buffer[3] = 0;
+
+    while(fread(&buffer, sizeof(unsigned char), 4, input) != 0) {
+      tmp  = (uint32_t)(buffer[0] << 0);
+      tmp |= (uint32_t)(buffer[1] << 8);
+      tmp |= (uint32_t)(buffer[2] << 16);
+      tmp |= (uint32_t)(buffer[3] << 24);
+      fputc(buffer[0], output);
+      fputc(buffer[1], output);
+      fputc(buffer[2], output);
+      fputc(buffer[3], output);
+    }
+  }
+
+
+// ------------------------------------------------------------
+// Done, clean up
+// ------------------------------------------------------------
 
   fclose(input);
   fclose(output);

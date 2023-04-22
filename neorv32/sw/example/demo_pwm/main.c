@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -36,7 +36,7 @@
 /**********************************************************************//**
  * @file demo_pwm/main.c
  * @author Stephan Nolting
- * @brief Simple PWM usage example.
+ * @brief Simple PWM demo program.
  **************************************************************************/
 
 #include <neorv32.h>
@@ -48,25 +48,20 @@
 /**@{*/
 /** UART BAUD rate */
 #define BAUD_RATE 19200
-/** Maximum PWM output intensity (0..255) */
-#define PWM_MAX 128
+/** Maximum PWM output intensity (8-bit) */
+#define PWM_MAX 200
 /**@}*/
 
 
+
 /**********************************************************************//**
- * This program generates a simple dimming sequence for PWM channel 0,1,2.
+ * This program generates a simple dimming sequence for PWM channels 0 to 3.
  *
  * @note This program requires the PWM controller to be synthesized (the UART is optional).
  *
- * @return 0 if execution was successful
+ * @return !=0 if error.
  **************************************************************************/
 int main() {
-
-  // check if PWM unit is implemented at all
-  if (neorv32_pwm_available() == 0) {
-    return 1;
-  }
-
 
   // capture all exceptions and give debug info via UART
   // this is not required, but keeps us safe
@@ -74,26 +69,38 @@ int main() {
 
   // use UART0 if implemented
   if (neorv32_uart0_available()) {
-    // init UART at default baud rate, no parity bits, ho hw flow control
-    neorv32_uart0_setup(BAUD_RATE, PARITY_NONE, FLOW_CONTROL_NONE);
 
-    // check available hardware extensions and compare with compiler flags
-    neorv32_rte_check_isa(0); // silent = 0 -> show message if isa mismatch
+    // setup UART at default baud rate, no interrupts
+    neorv32_uart0_setup(BAUD_RATE, 0);
 
     // say hello
-    neorv32_uart0_print("PWM demo program\n");
+    neorv32_uart0_printf("<<< PWM demo program >>>\n");
+  }
+
+  // check if PWM unit is implemented at all
+  if (neorv32_pwm_available() == 0) {
+    if (neorv32_uart0_available()) {
+      neorv32_uart0_printf("ERROR: PWM module not implemented!\n");
+    }
+    return 1;
+  }
+
+  int num_pwm_channels = neorv32_pmw_get_num_channels();
+
+  // check number of PWM channels
+  if (neorv32_uart0_available()) {
+    neorv32_uart0_printf("Implemented PWM channels: %i\n\n", num_pwm_channels);
   }
 
 
   // deactivate all PWM channels
-  neorv32_pwm_set(0, 0);
-  neorv32_pwm_set(1, 0);
-  neorv32_pwm_set(2, 0);
-  neorv32_pwm_set(3, 0);
+  int i;
+  for (i=0; i<num_pwm_channels; i++) {
+    neorv32_pwm_set(i, 0);
+  }
 
   // configure and enable PWM
   neorv32_pwm_setup(CLK_PRSC_64);
-
 
   uint8_t pwm = 0;
   uint8_t up = 1;
@@ -104,7 +111,7 @@ int main() {
   
     // update duty cycle
     if (up) {
-      if (pwm == (PWM_MAX & 0xFF)) {
+      if (pwm == PWM_MAX) {
         up = 0;
       }
       else {
@@ -120,13 +127,9 @@ int main() {
         pwm--;
       }
     }
-  
-    // output new duty cycle
-    if (ch != 3) { // skip channel 3
-      neorv32_pwm_set(ch, pwm);
-    }
 
-    neorv32_cpu_delay_ms(10); // wait ~10ms
+    neorv32_pwm_set(ch, pwm); // output new duty cycle
+    neorv32_cpu_delay_ms(3); // wait ~3ms
   }
 
   return 0;

@@ -10,7 +10,7 @@
 -- # ********************************************************************************************* #
 -- # BSD 3-Clause License                                                                          #
 -- #                                                                                               #
--- # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+-- # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 -- #                                                                                               #
 -- # Redistribution and use in source and binary forms, with or without modification, are          #
 -- # permitted provided that the following conditions are met:                                     #
@@ -55,6 +55,7 @@ entity neorv32_xirq is
   port (
     -- host access --
     clk_i     : in  std_ulogic; -- global clock line
+    rstn_i    : in  std_ulogic; -- global reset line, low-active, async
     addr_i    : in  std_ulogic_vector(31 downto 0); -- address
     rden_i    : in  std_ulogic; -- read enable
     wren_i    : in  std_ulogic; -- write enable
@@ -62,7 +63,7 @@ entity neorv32_xirq is
     data_o    : out std_ulogic_vector(31 downto 0); -- data out
     ack_o     : out std_ulogic; -- transfer acknowledge
     -- external interrupt lines --
-    xirq_i    : in  std_ulogic_vector(XIRQ_NUM_CH-1 downto 0);
+    xirq_i    : in  std_ulogic_vector(31 downto 0);
     -- CPU interrupt --
     cpu_irq_o : out std_ulogic
   );
@@ -80,10 +81,10 @@ architecture neorv32_xirq_rtl of neorv32_xirq is
   signal wren   : std_ulogic; -- word write enable
   signal rden   : std_ulogic; -- read enable
 
-  -- control registers --
-  signal irq_enable  : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0); -- r/w: interrupt enable
-  signal clr_pending : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0); -- r/w: clear pending IRQs
-  signal irq_src     : std_ulogic_vector(4 downto 0); -- r/w: source IRQ, ACK on any write
+  -- interface registers --
+  signal irq_enable   : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0); -- r/w: channel enable
+  signal nclr_pending : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0); -- r/w: pending IRQs
+  signal irq_source   : std_ulogic_vector(4 downto 0); -- r/w: source IRQ, ACK on write
 
   -- interrupt trigger --
   signal irq_sync  : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0);
@@ -91,79 +92,82 @@ architecture neorv32_xirq_rtl of neorv32_xirq is
   signal irq_trig  : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0);
 
   -- interrupt buffer --
-  signal irq_buf  : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0);
-  signal irq_fire : std_ulogic;
+  signal irq_pending : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0);
+  signal irq_raw     : std_ulogic_vector(XIRQ_NUM_CH-1 downto 0);
+  signal irq_fire    : std_ulogic;
 
-  -- interrupt source --
-  signal irq_src_nxt : std_ulogic_vector(4 downto 0);
-
-  -- arbiter --
-  signal irq_run : std_ulogic;
+  -- interrupt arbiter --
+  signal irq_source_nxt : std_ulogic_vector(4 downto 0);
+  signal irq_active     : std_ulogic;
 
 begin
 
   -- Sanity Checks --------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  assert not ((XIRQ_NUM_CH < 0) or (XIRQ_NUM_CH > 32)) report "NEORV32 PROCESSOR CONFIG ERROR: Number of XIRQ inputs <XIRQ_NUM_CH> has to be 0..32." severity error;
+  assert (XIRQ_NUM_CH <= 32)
+    report "NEORV32 PROCESSOR CONFIG ERROR: Number of XIRQ inputs <XIRQ_NUM_CH> has to be 0..32." severity error;
 
 
-  -- Access Control -------------------------------------------------------------------------
+  -- Host Access ----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
+  -- access control --
   acc_en <= '1' when (addr_i(hi_abb_c downto lo_abb_c) = xirq_base_c(hi_abb_c downto lo_abb_c)) else '0';
   addr   <= xirq_base_c(31 downto lo_abb_c) & addr_i(lo_abb_c-1 downto 2) & "00"; -- word aligned
   wren   <= acc_en and wren_i;
   rden   <= acc_en and rden_i;
 
-
-  -- Read/Write Access ----------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  rw_access: process(clk_i)
+  -- write access --
+  write_access: process(rstn_i, clk_i)
   begin
-    if rising_edge(clk_i) then
-      -- bus handshake --
-      ack_o <= rden or wren;
-
-      -- write access --
-      clr_pending <= (others => '1');
+    if (rstn_i = '0') then
+      nclr_pending <= (others => '0'); -- clear all pending interrupts on reset
+      irq_enable   <= (others => '0');
+    elsif rising_edge(clk_i) then
+      nclr_pending <= (others => '1');
       if (wren = '1') then
-        -- channel-enable --
-        if (addr = xirq_enable_addr_c) then
+        if (addr = xirq_enable_addr_c) then -- channel-enable
           irq_enable <= data_i(XIRQ_NUM_CH-1 downto 0);
         end if;
-        -- clear pending IRQs --
-        if (addr = xirq_pending_addr_c) then
-          clr_pending <= data_i(XIRQ_NUM_CH-1 downto 0); -- set zero to clear pending IRQ
+        if (addr = xirq_pending_addr_c) then -- clear pending IRQs
+          nclr_pending <= data_i(XIRQ_NUM_CH-1 downto 0); -- set zero to clear pending IRQ
         end if;
       end if;
+    end if;
+  end process write_access;
 
-      -- read access --
+  -- read access --
+  read_access: process(clk_i)
+  begin
+    if rising_edge(clk_i) then
+      ack_o  <= rden or wren; -- bus handshake
       data_o <= (others => '0');
       if (rden = '1') then
         case addr is
           when xirq_enable_addr_c  => data_o(XIRQ_NUM_CH-1 downto 0) <= irq_enable; -- channel-enable
-          when xirq_pending_addr_c => data_o(XIRQ_NUM_CH-1 downto 0) <= irq_buf; -- pending IRQs
-          when xirq_source_addr_c  => data_o(4 downto 0) <= irq_src; -- source IRQ
-          when others => NULL;
+          when xirq_pending_addr_c => data_o(XIRQ_NUM_CH-1 downto 0) <= irq_pending; -- pending IRQs
+          when others              => data_o(4 downto 0)             <= irq_source; -- IRQ source
         end case;
       end if;
     end if;
-  end process rw_access;
+  end process read_access;
 
 
   -- IRQ Trigger --------------------------------------------------------------
   -- -----------------------------------------------------------------------------
-  irq_trigger: process(clk_i)
+  synchronizer: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      irq_sync  <= xirq_i;
+      irq_sync  <= xirq_i(XIRQ_NUM_CH-1 downto 0);
       irq_sync2 <= irq_sync;
     end if;
-  end process irq_trigger;
+  end process synchronizer;
 
-  irq_trigger_comb: process(irq_sync, irq_sync2)
-    variable sel_v : std_ulogic_vector(1 downto 0);
-  begin
-    for i in 0 to XIRQ_NUM_CH-1 loop
+  -- trigger type select --
+  irq_trigger_gen:
+  for i in 0 to XIRQ_NUM_CH-1 generate
+    irq_trigger: process(irq_sync, irq_sync2)
+      variable sel_v : std_ulogic_vector(1 downto 0);
+    begin
       sel_v := XIRQ_TRIGGER_TYPE(i) & XIRQ_TRIGGER_POLARITY(i);
       case sel_v is
         when "00"   => irq_trig(i) <= not irq_sync(i); -- low-level
@@ -172,8 +176,8 @@ begin
         when "11"   => irq_trig(i) <= irq_sync(i) and (not irq_sync2(i)); -- rising-edge
         when others => irq_trig(i) <= '0';
       end case;
-    end loop;
-  end process irq_trigger_comb;
+    end process irq_trigger;
+  end generate;
 
 
   -- IRQ Buffer ---------------------------------------------------------------
@@ -181,46 +185,49 @@ begin
   irq_buffer: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      irq_buf <= (irq_buf or (irq_trig and irq_enable)) and clr_pending;
+      irq_pending <= (irq_pending and nclr_pending) or irq_trig;
     end if;
   end process irq_buffer;
 
-  -- anyone firing? --
-  irq_fire <= or_reduce_f(irq_buf);
+  -- filter enabled channels --
+  irq_raw <= irq_pending and irq_enable;
 
-
-  -- IRQ Priority Encoder -----------------------------------------------------
-  -- -----------------------------------------------------------------------------
-  irq_priority: process(irq_buf)
+  -- encode current IRQ's priority --
+  priority_encoder: process(irq_raw)
   begin
-    irq_src_nxt <= (others => '0');
+    irq_source_nxt <= (others => '0');
     if (XIRQ_NUM_CH > 1) then
       for i in 0 to XIRQ_NUM_CH-1 loop
-        if (irq_buf(i) = '1') then
-          irq_src_nxt(index_size_f(XIRQ_NUM_CH)-1 downto 0) <= std_ulogic_vector(to_unsigned(i, index_size_f(XIRQ_NUM_CH)));
+        if (irq_raw(i) = '1') then
+          irq_source_nxt <= std_ulogic_vector(to_unsigned(i, irq_source_nxt'length));
           exit;
         end if;
       end loop;
     end if;
-  end process irq_priority;
+  end process priority_encoder;
+
+  -- anyone firing? --
+  irq_fire <= '1' when (or_reduce_f(irq_raw) = '1') else '0';
 
 
   -- IRQ Arbiter --------------------------------------------------------------
   -- -----------------------------------------------------------------------------
-  irq_arbiter: process(clk_i)
+  irq_arbiter: process(rstn_i, clk_i)
   begin
-    if rising_edge(clk_i) then
+    if (rstn_i = '0') then
+      cpu_irq_o  <= '0';
+      irq_active <= '0';
+      irq_source <= (others => '0');
+    elsif rising_edge(clk_i) then
       cpu_irq_o <= '0';
-      if (irq_run = '0') then -- no active IRQ
+      if (irq_active = '0') then -- no active IRQ
+        irq_source <= irq_source_nxt; -- get IRQ source that has highest priority
         if (irq_fire = '1') then
-          cpu_irq_o <= '1';
-          irq_run   <= '1';
-          irq_src   <= irq_src_nxt;
+          cpu_irq_o  <= '1';
+          irq_active <= '1';
         end if;
-      else -- active IRQ, wait for CPU to acknowledge
-        if (wren = '1') and (addr = xirq_source_addr_c) then -- write _any_ value to acknowledge
-          irq_run <= '0';
-        end if;
+      elsif (wren = '1') and (addr = xirq_source_addr_c) then -- acknowledge on write access
+        irq_active <= '0';
       end if;
     end if;
   end process irq_arbiter;

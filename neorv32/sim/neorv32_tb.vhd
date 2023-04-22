@@ -1,5 +1,5 @@
 -- #################################################################################################
--- # << NEORV32 - Default Processor Testbench >>                                                   #
+-- # << NEORV32 - VUnit Processor Testbench >>                                                     #
 -- # ********************************************************************************************* #
 -- # The processor is configured to use a maximum of functional units (for testing purpose).       #
 -- # Use the "User Configuration" section to configure the testbench according to your needs.      #
@@ -7,7 +7,7 @@
 -- # ********************************************************************************************* #
 -- # BSD 3-Clause License                                                                          #
 -- #                                                                                               #
--- # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+-- # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 -- #                                                                                               #
 -- # Redistribution and use in source and binary forms, with or without modification, are          #
 -- # permitted provided that the following conditions are met:                                     #
@@ -66,13 +66,15 @@ architecture neorv32_tb_rtl of neorv32_tb is
   -- User Configuration ---------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
   -- general --
-  constant ext_imem_c              : boolean := false; -- false: use and boot from proc-internal IMEM, true: use and boot from external (initialized) simulated IMEM (ext. mem A)
-  constant ext_dmem_c              : boolean := false; -- false: use proc-internal DMEM, true: use external simulated DMEM (ext. mem B)
+  constant ext_imem_c              : boolean := true; -- false: use and boot from proc-internal IMEM, true: use and boot from external (initialized) simulated IMEM (ext. mem A)
+  constant ext_dmem_c              : boolean := true; -- false: use proc-internal DMEM, true: use external simulated DMEM (ext. mem B)
   constant imem_size_c             : natural := 16*1024; -- size in bytes of processor-internal IMEM / external mem A
   constant dmem_size_c             : natural := 8*1024; -- size in bytes of processor-internal DMEM / external mem B
   constant f_clock_c               : natural := 100000000; -- main clock in Hz
   constant baud0_rate_c            : natural := 19200; -- simulation UART0 (primary UART) baud rate
   constant baud1_rate_c            : natural := 19200; -- simulation UART1 (secondary UART) baud rate
+  constant icache_en_c             : boolean := true; -- implement i-cache
+  constant icache_block_size_c     : natural := 64; -- i-cache block size in bytes
   -- simulated external Wishbone memory A (can be used as external IMEM) --
   constant ext_mem_a_base_addr_c   : std_ulogic_vector(31 downto 0) := x"00000000"; -- wishbone memory base address (external IMEM base)
   constant ext_mem_a_size_c        : natural := imem_size_c; -- wishbone memory size in bytes
@@ -83,8 +85,8 @@ architecture neorv32_tb_rtl of neorv32_tb is
   constant ext_mem_b_latency_c     : natural := 8; -- latency in clock cycles (min 1, max 255), plus 1 cycle initial delay
   -- simulated external Wishbone memory C (can be used to simulate external IO access) --
   constant ext_mem_c_base_addr_c   : std_ulogic_vector(31 downto 0) := x"F0000000"; -- wishbone memory base address (default begin of EXTERNAL IO area)
-  constant ext_mem_c_size_c        : natural := 64; -- wishbone memory size in bytes
-  constant ext_mem_c_latency_c     : natural := 3; -- latency in clock cycles (min 1, max 255), plus 1 cycle initial delay
+  constant ext_mem_c_size_c        : natural := icache_block_size_c/2; -- wishbone memory size in bytes, should be smaller than an iCACHE block
+  constant ext_mem_c_latency_c     : natural := 128; -- latency in clock cycles (min 1, max 255), plus 1 cycle initial delay
   -- simulation interrupt trigger --
   constant irq_trigger_base_addr_c : std_ulogic_vector(31 downto 0) := x"FF000000";
   -- -------------------------------------------------------------------------------------------
@@ -100,19 +102,24 @@ architecture neorv32_tb_rtl of neorv32_tb is
   signal clk_gen, rst_gen : std_ulogic := '0';
 
   -- uart --
-  signal uart0_txd : std_ulogic; -- local loop-back
-  signal uart0_cts : std_ulogic; -- local loop-back
-  signal uart1_txd : std_ulogic; -- local loop-back
-  signal uart1_cts : std_ulogic; -- local loop-back
+  signal uart0_txd, uart1_txd : std_ulogic;
+  signal uart0_cts, uart1_cts : std_ulogic;
 
   -- gpio --
   signal gpio : std_ulogic_vector(63 downto 0);
 
   -- twi --
   signal twi_scl, twi_sda : std_logic;
+  signal twi_scl_i, twi_scl_o, twi_sda_i, twi_sda_o : std_ulogic;
 
-  -- spi --
-  signal spi_data : std_ulogic;
+  -- 1-wire --
+  signal onewire : std_logic;
+  signal onewire_i, onewire_o : std_ulogic;
+
+  -- spi & sdi --
+  signal spi_csn: std_ulogic_vector(7 downto 0);
+  signal spi_di, spi_do, spi_clk : std_ulogic;
+  signal sdi_di, sdi_do, sdi_clk, sdi_csn : std_ulogic;
 
   -- irq --
   signal msi_ring, mei_ring : std_ulogic;
@@ -129,15 +136,11 @@ architecture neorv32_tb_rtl of neorv32_tb is
     ack   : std_ulogic; -- transfer acknowledge
     err   : std_ulogic; -- transfer error
     tag   : std_ulogic_vector(02 downto 0); -- request tag
-    lock  : std_ulogic; -- exclusive access request
   end record;
   signal wb_cpu, wb_mem_a, wb_mem_b, wb_mem_c, wb_irq : wishbone_t;
 
   -- Wishbone access latency type --
   type ext_mem_read_latency_t is array (0 to 255) of std_ulogic_vector(31 downto 0);
-
-  -- exclusive access / reservation --
-  signal ext_mem_c_atomic_reservation : std_ulogic := '0';
 
   -- simulated external memory c (IO) --
   signal ext_ram_c : mem32_t(0 to ext_mem_c_size_c/4-1); -- uninitialized, used to simulate external IO
@@ -146,61 +149,19 @@ architecture neorv32_tb_rtl of neorv32_tb is
   type ext_mem_t is record
     rdata  : ext_mem_read_latency_t;
     acc_en : std_ulogic;
-    ack    : std_ulogic_vector(ext_mem_a_latency_c-1 downto 0);
+    ack    : std_ulogic_vector(255 downto 0);
   end record;
   signal ext_mem_a, ext_mem_b, ext_mem_c : ext_mem_t;
-
-  -- stream link interface - local echo --
-  signal slink_dat : sdata_8x32_t;
-  signal slink_val : std_ulogic_vector(7 downto 0);
-  signal slink_rdy : std_ulogic_vector(7 downto 0);
-
-  signal slink_transmitter_dat, slink_receiver_dat : sdata_8x32_t;
-  signal slink_transmitter_val, slink_receiver_val : std_ulogic_vector(7 downto 0);
-  signal slink_transmitter_rdy, slink_receiver_rdy : std_ulogic_vector(7 downto 0);
 
   constant uart0_rx_logger : logger_t := get_logger("UART0.RX");
   constant uart1_rx_logger : logger_t := get_logger("UART1.RX");
   constant uart0_rx_handle : uart_rx_t := new_uart_rx(uart0_baud_val_c, uart0_rx_logger);
   constant uart1_rx_handle : uart_rx_t := new_uart_rx(uart1_baud_val_c, uart1_rx_logger);
 
-  type axi_stream_master_vec_t is array(integer range <>) of axi_stream_master_t;
-  type axi_stream_slave_vec_t is array(integer range <>) of axi_stream_slave_t;
-
-  impure function init_slink_transmitters return axi_stream_master_vec_t is
-    variable result : axi_stream_master_vec_t(slink_transmitter_val'range);
-  begin
-    for idx in result'range loop
-      result(idx) := new_axi_stream_master(
-        data_length => slink_transmitter_dat(idx)'length,
-        stall_config => new_stall_config(0.05, 1, 10)
-      );
-    end loop;
-
-    return result;
-  end;
-
-  impure function init_slink_receivers return axi_stream_slave_vec_t is
-    variable result : axi_stream_slave_vec_t(slink_receiver_val'range);
-  begin
-    for idx in result'range loop
-      result(idx) := new_axi_stream_slave(
-        data_length => slink_receiver_dat(idx)'length,
-        stall_config => new_stall_config(0.05, 1, 10)
-      );
-    end loop;
-
-    return result;
-  end;
-
-  constant slink_transmitters : axi_stream_master_vec_t := init_slink_transmitters;
-  constant slink_receivers : axi_stream_slave_vec_t := init_slink_receivers;
-
 begin
   test_runner : process
     variable msg : msg_t;
     variable rnd : RandomPType;
-    variable value : std_logic_vector(slink_transmitter_dat(0)'range);
   begin
     test_runner_setup(runner, runner_cfg);
 
@@ -219,29 +180,8 @@ begin
     if ci_mode then
       -- No need to send the full expectation in one big chunk
       check_uart(net, uart1_rx_handle, nul & nul);
-      check_uart(net, uart1_rx_handle, "0/46" & cr & lf);
+      check_uart(net, uart1_rx_handle, "0/49" & cr & lf);
     end if;
-
-    -- Apply some random data on each SLINK inputs and expect it to
-    -- be echoed by the CPU. No blocking. Let the SLINK transmitters
-    -- and receivers do this work in parallel.
-    for idx in slink_transmitters'range loop
-      for iter in 1 to 100 loop
-        value := rnd.RandSlv(value'length);
-
-        -- SLINK is AXI Stream compatible so the SLINK transmitters and
-        -- and receivers are AXI Stream master and slave verification components (VCs).
-        -- The full-featured AXI Stream verification component interface (VCI) is used
-        -- but the AXI stream VCs also implements the basic stream VCI which also works
-        -- for simple transactions like these. To use that interface for pushing data
-        -- the AXI Steam VC must be "cast" to a basic stream VC using "as_stream"
-        --
-        -- push_stream(net, as_stream(slink_transmitters(idx)), value);
-
-        push_axi_stream(net, slink_transmitters(idx), value);
-        check_axi_stream(net, slink_receivers(idx), value, blocking => false);
-      end loop;
-    end loop;
 
     -- Wait until all expected data has been received
     --
@@ -251,9 +191,6 @@ begin
     -- to a sync VC
     wait_until_idle(net, as_sync(uart0_rx_handle));
     wait_until_idle(net, as_sync(uart1_rx_handle));
-    for idx in slink_receivers'range loop
-      wait_until_idle(net, as_sync(slink_receivers(idx)));
-    end loop;
 
     -- Wait a bit more if some extra unexpected data is produced. If so,
     -- uart_rx will fail
@@ -278,29 +215,32 @@ begin
   generic map (
     -- General --
     CLOCK_FREQUENCY              => f_clock_c,     -- clock frequency of clk_i in Hz
-    HW_THREAD_ID                 => 0,             -- hardware thread id (hartid) (32-bit)
+    HART_ID                      => x"00000000",   -- hardware thread ID
+    VENDOR_ID                    => x"00000000",   -- vendor's JEDEC ID
+    CUSTOM_ID                    => x"12345678",   -- custom user-defined ID
     INT_BOOTLOADER_EN            => false,         -- boot configuration: true = boot explicit bootloader; false = boot from int/ext (I)MEM
     -- On-Chip Debugger (OCD) --
     ON_CHIP_DEBUGGER_EN          => true,          -- implement on-chip debugger
     -- RISC-V CPU Extensions --
-    CPU_EXTENSION_RISCV_A        => true,          -- implement atomic extension?
     CPU_EXTENSION_RISCV_B        => true,          -- implement bit-manipulation extension?
     CPU_EXTENSION_RISCV_C        => true,          -- implement compressed extension?
     CPU_EXTENSION_RISCV_E        => false,         -- implement embedded RF extension?
-    CPU_EXTENSION_RISCV_M        => true,          -- implement muld/div extension?
+    CPU_EXTENSION_RISCV_M        => true,          -- implement mul/div extension?
     CPU_EXTENSION_RISCV_U        => true,          -- implement user mode extension?
     CPU_EXTENSION_RISCV_Zfinx    => true,          -- implement 32-bit floating-point extension (using INT reg!)
-    CPU_EXTENSION_RISCV_Zicsr    => true,          -- implement CSR system?
     CPU_EXTENSION_RISCV_Zicntr   => true,          -- implement base counters?
+    CPU_EXTENSION_RISCV_Zicond   => true,          -- implement conditional operations extension?
     CPU_EXTENSION_RISCV_Zihpm    => true,          -- implement hardware performance monitors?
     CPU_EXTENSION_RISCV_Zifencei => true,          -- implement instruction stream sync.?
+    CPU_EXTENSION_RISCV_Zmmul    => false,         -- implement multiply-only M sub-extension?
+    CPU_EXTENSION_RISCV_Zxcfu    => true,          -- implement custom (instr.) functions unit?
     -- Extension Options --
     FAST_MUL_EN                  => false,         -- use DSPs for M extension's multiplier
     FAST_SHIFT_EN                => false,         -- use barrel shifter for shift operations
-    CPU_CNT_WIDTH                => 64,            -- total width of CPU cycle and instret counters (0..64)
+    CPU_IPB_ENTRIES              => 1,             -- entries is instruction prefetch buffer, has to be a power of 2, min 1
     -- Physical Memory Protection (PMP) --
-    PMP_NUM_REGIONS              => 8,             -- number of regions (0..64)
-    PMP_MIN_GRANULARITY          => 64*1024,       -- minimal region granularity in bytes, has to be a power of 2, min 8 bytes
+    PMP_NUM_REGIONS              => 5,             -- number of regions (0..16)
+    PMP_MIN_GRANULARITY          => 4,             -- minimal region granularity in bytes, has to be a power of 2, min 4 bytes
     -- Hardware Performance Monitors (HPM) --
     HPM_NUM_CNTS                 => 12,            -- number of implemented HPM counters (0..29)
     HPM_CNT_WIDTH                => 40,            -- total size of HPM counters (0..64)
@@ -311,24 +251,27 @@ begin
     MEM_INT_DMEM_EN              => int_dmem_c,    -- implement processor-internal data memory
     MEM_INT_DMEM_SIZE            => dmem_size_c,   -- size of processor-internal data memory in bytes
     -- Internal Cache memory --
-    ICACHE_EN                    => true,          -- implement instruction cache
+    ICACHE_EN                    => icache_en_c,   -- implement instruction cache
     ICACHE_NUM_BLOCKS            => 8,             -- i-cache: number of blocks (min 2), has to be a power of 2
-    ICACHE_BLOCK_SIZE            => 64,            -- i-cache: block size in bytes (min 4), has to be a power of 2
+    ICACHE_BLOCK_SIZE            => icache_block_size_c, -- i-cache: block size in bytes (min 4), has to be a power of 2
     ICACHE_ASSOCIATIVITY         => 2,             -- i-cache: associativity / number of sets (1=direct_mapped), has to be a power of 2
+    -- Internal Data Cache (dCACHE) --
+    DCACHE_EN                    => true,          -- implement data cache
+    DCACHE_NUM_BLOCKS            => 8,             -- d-cache: number of blocks (min 1), has to be a power of 2
+    DCACHE_BLOCK_SIZE            => 64,            -- d-cache: block size in bytes (min 4), has to be a power of 2
     -- External memory interface --
     MEM_EXT_EN                   => true,          -- implement external memory bus interface?
     MEM_EXT_TIMEOUT              => 256,           -- cycles after a pending bus access auto-terminates (0 = disabled)
-    -- Stream link interface --
-    SLINK_NUM_TX                 => 8,             -- number of TX links (0..8)
-    SLINK_NUM_RX                 => 8,             -- number of TX links (0..8)
-    SLINK_TX_FIFO                => 4,             -- TX fifo depth, has to be a power of two
-    SLINK_RX_FIFO                => 1,             -- RX fifo depth, has to be a power of two
+    MEM_EXT_PIPE_MODE            => false,         -- protocol: false=classic/standard wishbone mode, true=pipelined wishbone mode
+    MEM_EXT_BIG_ENDIAN           => false,         -- byte order: true=big-endian, false=little-endian
+    MEM_EXT_ASYNC_RX             => false,         -- use register buffer for RX data when false
+    MEM_EXT_ASYNC_TX             => false,         -- use register buffer for TX data when false
     -- External Interrupts Controller (XIRQ) --
     XIRQ_NUM_CH                  => 32,            -- number of external IRQ channels (0..32)
     XIRQ_TRIGGER_TYPE            => (others => '1'), -- trigger type: 0=level, 1=edge
-    XIRQ_TRIGGER_POLARITY        => (others => '1'), -- trigger polarity: 0=low-level/falling-edge, 1=high-level/rising-edge 
+    XIRQ_TRIGGER_POLARITY        => (others => '1'), -- trigger polarity: 0=low-level/falling-edge, 1=high-level/rising-edge
     -- Processor peripherals --
-    IO_GPIO_EN                   => true,          -- implement general purpose input/output port unit (GPIO)?
+    IO_GPIO_NUM                  => 64,            -- number of GPIO input/output pairs (0..64)
     IO_MTIME_EN                  => true,          -- implement machine system timer (MTIME)?
     IO_UART0_EN                  => true,          -- implement primary universal asynchronous receiver/transmitter (UART0)?
     IO_UART0_RX_FIFO             => 32,            -- RX fifo depth, has to be a power of two, min 1
@@ -337,17 +280,23 @@ begin
     IO_UART1_RX_FIFO             => 1,             -- RX fifo depth, has to be a power of two, min 1
     IO_UART1_TX_FIFO             => 1,             -- TX fifo depth, has to be a power of two, min 1
     IO_SPI_EN                    => true,          -- implement serial peripheral interface (SPI)?
+    IO_SPI_FIFO                  => 4,             -- SPI RTX fifo depth, has to be zero or a power of two
+    IO_SDI_EN                    => true,          -- implement serial data interface (SDI)?
+    IO_SDI_FIFO                  => 4,             -- SDI RTX fifo depth, has to be zero or a power of two
     IO_TWI_EN                    => true,          -- implement two-wire interface (TWI)?
-    IO_PWM_NUM_CH                => 30,            -- number of PWM channels to implement (0..60); 0 = disabled
+    IO_PWM_NUM_CH                => 12,            -- number of PWM channels to implement (0..12); 0 = disabled
     IO_WDT_EN                    => true,          -- implement watch dog timer (WDT)?
-    IO_TRNG_EN                   => false,         -- trng cannot be simulated
+    IO_TRNG_EN                   => true,          -- implement true random number generator (TRNG)?
+    IO_TRNG_FIFO                 => 4,             -- TRNG fifo depth, has to be a power of two, min 1
     IO_CFS_EN                    => true,          -- implement custom functions subsystem (CFS)?
     IO_CFS_CONFIG                => (others => '0'), -- custom CFS configuration generic
     IO_CFS_IN_SIZE               => 32,            -- size of CFS input conduit in bits
     IO_CFS_OUT_SIZE              => 32,            -- size of CFS output conduit in bits
     IO_NEOLED_EN                 => true,          -- implement NeoPixel-compatible smart LED interface (NEOLED)?
     IO_NEOLED_TX_FIFO            => 8,             -- NEOLED TX FIFO depth, 1..32k, has to be a power of two
-    IO_GPTMR_EN                  => true           -- implement general purpose timer (GPTMR)?
+    IO_GPTMR_EN                  => true,          -- implement general purpose timer (GPTMR)?
+    IO_XIP_EN                    => true,          -- implement execute in place module (XIP)?
+    IO_ONEWIRE_EN                => true           -- implement 1-wire interface (ONEWIRE)?
   )
   port map (
     -- Global control --
@@ -368,41 +317,47 @@ begin
     wb_sel_o       => wb_cpu.sel,      -- byte enable
     wb_stb_o       => wb_cpu.stb,      -- strobe
     wb_cyc_o       => wb_cpu.cyc,      -- valid cycle
-    wb_lock_o      => wb_cpu.lock,     -- exclusive access request
     wb_ack_i       => wb_cpu.ack,      -- transfer acknowledge
     wb_err_i       => wb_cpu.err,      -- transfer error
     -- Advanced memory control signals (available if MEM_EXT_EN = true) --
     fence_o        => open,            -- indicates an executed FENCE operation
     fencei_o       => open,            -- indicates an executed FENCEI operation
-    -- TX stream interfaces (available if SLINK_NUM_TX > 0) --
-    slink_tx_dat_o => slink_dat,       -- output data
-    slink_tx_val_o => slink_val,       -- valid output
-    slink_tx_rdy_i => slink_rdy,       -- ready to send
-    -- RX stream interfaces (available if SLINK_NUM_RX > 0) --
-    slink_rx_dat_i => slink_dat,       -- input data
-    slink_rx_val_i => slink_val,       -- valid input
-    slink_rx_rdy_o => slink_rdy,       -- ready to receive
-    -- GPIO (available if IO_GPIO_EN = true) --
+    -- XIP (execute in place via SPI) signals (available if IO_XIP_EN = true) --
+    xip_csn_o      => open,            -- chip-select, low-active
+    xip_clk_o      => open,            -- serial clock
+    xip_dat_i      => '1',             -- device data input
+    xip_dat_o      => open,            -- controller data output
+    -- GPIO (available if IO_GPIO_NUM > 0) --
     gpio_o         => gpio,            -- parallel output
     gpio_i         => gpio,            -- parallel input
     -- primary UART0 (available if IO_UART0_EN = true) --
     uart0_txd_o    => uart0_txd,       -- UART0 send data
     uart0_rxd_i    => uart0_txd,       -- UART0 receive data
-    uart0_rts_o    => uart0_cts,       -- hw flow control: UART0.RX ready to receive ("RTR"), low-active, optional
-    uart0_cts_i    => uart0_cts,       -- hw flow control: UART0.TX allowed to transmit, low-active, optional
+    uart0_rts_o    => uart1_cts,       -- HW flow control: UART0.RX ready to receive ("RTR"), low-active, optional
+    uart0_cts_i    => uart0_cts,       -- HW flow control: UART0.TX allowed to transmit, low-active, optional
     -- secondary UART1 (available if IO_UART1_EN = true) --
     uart1_txd_o    => uart1_txd,       -- UART1 send data
     uart1_rxd_i    => uart1_txd,       -- UART1 receive data
-    uart1_rts_o    => uart1_cts,       -- hw flow control: UART1.RX ready to receive ("RTR"), low-active, optional
-    uart1_cts_i    => uart1_cts,       -- hw flow control: UART1.TX allowed to transmit, low-active, optional
+    uart1_rts_o    => uart0_cts,       -- HW flow control: UART0.RX ready to receive ("RTR"), low-active, optional
+    uart1_cts_i    => uart1_cts,       -- HW flow control: UART0.TX allowed to transmit, low-active, optional
     -- SPI (available if IO_SPI_EN = true) --
-    spi_sck_o      => open,            -- SPI serial clock
-    spi_sdo_o      => spi_data,        -- controller data out, peripheral data in
-    spi_sdi_i      => spi_data,        -- controller data in, peripheral data out
-    spi_csn_o      => open,            -- SPI CS
+    spi_clk_o      => spi_clk,         -- SPI serial clock
+    spi_dat_o      => spi_do,          -- controller data out, peripheral data in
+    spi_dat_i      => spi_di,          -- controller data in, peripheral data out
+    spi_csn_o      => spi_csn,         -- SPI CS
+    -- SDI (available if IO_SDI_EN = true) --
+    sdi_clk_i      => sdi_clk,         -- SDI serial clock
+    sdi_dat_o      => sdi_do,          -- controller data out, peripheral data in
+    sdi_dat_i      => sdi_di,          -- controller data in, peripheral data out
+    sdi_csn_i      => sdi_csn,         -- chip-select
     -- TWI (available if IO_TWI_EN = true) --
-    twi_sda_io     => twi_sda,         -- twi serial data line
-    twi_scl_io     => twi_scl,         -- twi serial clock line
+    twi_sda_i      => twi_sda_i,       -- serial data line sense input
+    twi_sda_o      => twi_sda_o,       -- serial data line output (pull low only)
+    twi_scl_i      => twi_scl_i,       -- serial clock line sense input
+    twi_scl_o      => twi_scl_o,       -- serial clock line output (pull low only)
+    -- 1-Wire Interface (available if IO_ONEWIRE_EN = true) --
+    onewire_i      => onewire_i,       -- 1-wire bus sense input
+    onewire_o      => onewire_o,       -- 1-wire bus output (pull low only)
     -- PWM (available if IO_PWM_NUM_CH > 0) --
     pwm_o          => open,            -- pwm channels
     -- Custom Functions Subsystem IO --
@@ -410,9 +365,6 @@ begin
     cfs_out_o      => open,            -- custom CFS outputs
     -- NeoPixel-compatible smart LED interface (available if IO_NEOLED_EN = true) --
     neoled_o       => open,            -- async serial data line
-    -- System time --
-    mtime_i        => (others => '0'), -- current system time from ext. MTIME (if IO_MTIME_EN = false)
-    mtime_o        => open,            -- current system time from int. MTIME (if IO_MTIME_EN = true)
     -- External platform interrupts (available if XIRQ_NUM_CH > 0) --
     xirq_i         => gpio(31 downto 0), -- IRQ channels
     -- CPU Interrupts --
@@ -421,9 +373,28 @@ begin
     mext_irq_i     => mei_ring         -- machine external interrupt
   );
 
+  -- TWI tri-state driver --
+  twi_sda   <= '0' when (twi_sda_o = '0') else 'Z'; -- module can only pull the line low actively
+  twi_scl   <= '0' when (twi_scl_o = '0') else 'Z';
+  twi_sda_i <= std_ulogic(twi_sda);
+  twi_scl_i <= std_ulogic(twi_scl);
+
+  -- 1-Wire tri-state driver --
+  onewire   <= '0' when (onewire_o = '0') else 'Z'; -- module can only pull the line low actively
+  onewire_i <= std_ulogic(onewire);
+
   -- TWI termination (pull-ups) --
   twi_scl <= 'H';
   twi_sda <= 'H';
+
+  -- 1-Wire termination (pull-up) --
+  onewire <= 'H';
+
+  -- SPI/SDI echo --
+  sdi_clk <= spi_clk;
+  sdi_csn <= spi_csn(7);
+  sdi_di  <= spi_do;
+  spi_di  <= sdi_do when (spi_csn(7) = '0') else spi_do;
 
   uart0_checker: entity work.uart_rx
     generic map (uart0_rx_handle)
@@ -437,41 +408,6 @@ begin
       clk => clk_gen,
       uart_txd => uart1_txd);
 
-  slink_transmitters_gen: for idx in slink_transmitters'range generate
-    slink_transmitter : entity vunit_lib.axi_stream_master
-      generic map(
-        master => slink_transmitters(idx)
-      )
-      port map(
-        aclk => clk_gen,
-        tvalid => slink_transmitter_val(idx),
-        tready => slink_transmitter_rdy(idx),
-        std_ulogic_vector(tdata) => slink_transmitter_dat(idx)
-      );
-  end generate;
-
-  slink_receivers_gen: for idx in slink_receivers'range generate
-  begin
-    slink_receiver : entity vunit_lib.axi_stream_slave
-      generic map(
-        slave => slink_receivers(idx)
-      )
-      port map(
-        aclk => clk_gen,
-        tvalid => slink_receiver_val(idx),
-        tready => slink_receiver_rdy(idx),
-        tdata => std_logic_vector(slink_receiver_dat(idx))
-      );
-  end generate;
-
-  -- TODO: connect these to the CPU SLINK interface once the
-  -- loopback SW has been implemented
-  temporary_connection : for idx in slink_transmitters'range generate
-    slink_receiver_val(idx) <= slink_transmitter_val(idx);
-    slink_transmitter_rdy(idx) <= slink_receiver_rdy(idx);
-    slink_receiver_dat(idx) <= slink_transmitter_dat(idx);
-  end generate;
-
 
   -- Wishbone Fabric ------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
@@ -482,7 +418,6 @@ begin
   wb_mem_a.sel   <= wb_cpu.sel;
   wb_mem_a.tag   <= wb_cpu.tag;
   wb_mem_a.cyc   <= wb_cpu.cyc;
-  wb_mem_a.lock  <= wb_cpu.lock;
 
   wb_mem_b.addr  <= wb_cpu.addr;
   wb_mem_b.wdata <= wb_cpu.wdata;
@@ -490,7 +425,6 @@ begin
   wb_mem_b.sel   <= wb_cpu.sel;
   wb_mem_b.tag   <= wb_cpu.tag;
   wb_mem_b.cyc   <= wb_cpu.cyc;
-  wb_mem_b.lock  <= wb_cpu.lock;
 
   wb_mem_c.addr  <= wb_cpu.addr;
   wb_mem_c.wdata <= wb_cpu.wdata;
@@ -498,7 +432,6 @@ begin
   wb_mem_c.sel   <= wb_cpu.sel;
   wb_mem_c.tag   <= wb_cpu.tag;
   wb_mem_c.cyc   <= wb_cpu.cyc;
-  wb_mem_c.lock  <= wb_cpu.lock;
 
   wb_irq.addr    <= wb_cpu.addr;
   wb_irq.wdata   <= wb_cpu.wdata;
@@ -551,7 +484,7 @@ begin
 
         -- bus output register --
         wb_mem_a.err <= '0';
-        if (ext_mem_a.ack(ext_mem_a_latency_c-1) = '1') and (wb_mem_a.cyc = '1') and (wb_mem_a.ack = '0') then
+        if (ext_mem_a.ack(ext_mem_a_latency_c-1) = '1') and (wb_mem_a.cyc = '1') then
           wb_mem_a.rdata <= ext_mem_a.rdata(ext_mem_a_latency_c-1);
           wb_mem_a.ack   <= '1';
         else
@@ -600,7 +533,7 @@ begin
 
       -- bus output register --
       wb_mem_b.err <= '0';
-      if (ext_mem_b.ack(ext_mem_b_latency_c-1) = '1') and (wb_mem_b.cyc = '1') and (wb_mem_b.ack = '0') then
+      if (ext_mem_b.ack(ext_mem_b_latency_c-1) = '1') and (wb_mem_b.cyc = '1') then
         wb_mem_b.rdata <= ext_mem_b.rdata(ext_mem_b_latency_c-1);
         wb_mem_b.ack   <= '1';
       else
@@ -638,20 +571,11 @@ begin
         end loop;
       end if;
 
-      -- EXCLUSIVE bus access -----------------------------------------------------
-      -- -----------------------------------------------------------------------------
-      -- Since there is only one CPU in this design, the exclusive access reservation in THIS memory CANNOT fail.
-      -- However, this memory module is used to simulated failing LR/SC accesses.
-      if ((wb_mem_c.cyc and wb_mem_c.stb) = '1') then -- valid access
-        ext_mem_c_atomic_reservation <= wb_mem_c.lock; -- make reservation
-      end if;
-      -- -----------------------------------------------------------------------------
-
       -- bus output register --
-      if (ext_mem_c.ack(ext_mem_c_latency_c-1) = '1') and (wb_mem_c.cyc = '1') and (wb_mem_c.ack = '0') then
+      if (ext_mem_c.ack(ext_mem_c_latency_c-1) = '1') and (wb_mem_c.cyc = '1') then
         wb_mem_c.rdata <= ext_mem_c.rdata(ext_mem_c_latency_c-1);
         wb_mem_c.ack   <= '1';
-        wb_mem_c.err   <= ext_mem_c_atomic_reservation; -- issue a bus error if there is an exclusive access request
+        wb_mem_c.err   <= '0';
       else
         wb_mem_c.rdata <= (others => '0');
         wb_mem_c.ack   <= '0';

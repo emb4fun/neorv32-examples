@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2022, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -35,7 +35,6 @@
 
 /**********************************************************************//**
  * @file neorv32_twi.c
- * @author Stephan Nolting
  * @brief Two-Wire Interface Controller (TWI) HW driver source file.
  *
  * @note These functions should only be used if the TWI unit was synthesized (IO_TWI_EN = true).
@@ -52,7 +51,7 @@
  **************************************************************************/
 int neorv32_twi_available(void) {
 
-  if (NEORV32_SYSINFO.SOC & (1 << SYSINFO_SOC_IO_TWI)) {
+  if (NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_TWI)) {
     return 1;
   }
   else {
@@ -65,18 +64,19 @@ int neorv32_twi_available(void) {
  * Enable and configure TWI controller. The TWI control register bits are listed in #NEORV32_TWI_CTRL_enum.
  *
  * @param[in] prsc Clock prescaler select (0..7). See #NEORV32_CLOCK_PRSC_enum.
+ * @param[in] cdiv Clock divider (0..15).
+ * @param[in] csen Allow clock stretching when 1.
  **************************************************************************/
-void neorv32_twi_setup(uint8_t prsc) {
+void neorv32_twi_setup(int prsc, int cdiv, int csen) {
 
-  NEORV32_TWI.CTRL = 0; // reset
+  NEORV32_TWI->CTRL = 0; // reset
 
-  uint32_t ct_enable = 1;
-  ct_enable = ct_enable << TWI_CTRL_EN;
-
-  uint32_t ct_prsc = (uint32_t)(prsc & 0x07);
-  ct_prsc = ct_prsc << TWI_CTRL_PRSC0;
-
-  NEORV32_TWI.CTRL = ct_enable | ct_prsc;
+  uint32_t ctrl = 0;
+  ctrl |= ((uint32_t)(          1) << TWI_CTRL_EN);
+  ctrl |= ((uint32_t)(prsc & 0x07) << TWI_CTRL_PRSC0);
+  ctrl |= ((uint32_t)(cdiv & 0x0F) << TWI_CTRL_CDIV0);
+  ctrl |= ((uint32_t)(csen & 0x01) << TWI_CTRL_CSEN);
+  NEORV32_TWI->CTRL = ctrl;
 }
 
 
@@ -85,7 +85,7 @@ void neorv32_twi_setup(uint8_t prsc) {
  **************************************************************************/
 void neorv32_twi_disable(void) {
 
-  NEORV32_TWI.CTRL &= ~((uint32_t)(1 << TWI_CTRL_EN));
+  NEORV32_TWI->CTRL &= ~((uint32_t)(1 << TWI_CTRL_EN));
 }
 
 
@@ -94,7 +94,7 @@ void neorv32_twi_disable(void) {
  **************************************************************************/
 void neorv32_twi_enable(void) {
 
-  NEORV32_TWI.CTRL |= (uint32_t)(1 << TWI_CTRL_EN);
+  NEORV32_TWI->CTRL |= (uint32_t)(1 << TWI_CTRL_EN);
 }
 
 
@@ -103,32 +103,32 @@ void neorv32_twi_enable(void) {
  **************************************************************************/
 void neorv32_twi_mack_enable(void) {
 
-  NEORV32_TWI.CTRL |= ((uint32_t)(1 << TWI_CTRL_MACK));
+  NEORV32_TWI->CTRL |= ((uint32_t)(1 << TWI_CTRL_MACK));
 }
 
 
 /**********************************************************************//**
- * Deacivate sending ACKs by controller (MACK).
+ * Deactivate sending ACKs by controller (MACK).
  **************************************************************************/
 void neorv32_twi_mack_disable(void) {
 
-  NEORV32_TWI.CTRL &= ~((uint32_t)(1 << TWI_CTRL_MACK));
+  NEORV32_TWI->CTRL &= ~((uint32_t)(1 << TWI_CTRL_MACK));
 }
 
 
 /**********************************************************************//**
  * Check if TWI is busy.
  *
- * @note This function is blocking.
- *
  * @return 0 if idle, 1 if busy
  **************************************************************************/
 int neorv32_twi_busy(void) {
 
-  if (NEORV32_TWI.CTRL & (1 << TWI_CTRL_BUSY)) {
+  if (NEORV32_TWI->CTRL & (1 << TWI_CTRL_BUSY)) {
     return 1;
   }
-  return 0;
+  else {
+    return 0;
+  }
 }
 
 
@@ -144,14 +144,7 @@ int neorv32_twi_start_trans(uint8_t a) {
 
   neorv32_twi_generate_start(); // generate START condition
 
-  NEORV32_TWI.DATA = (uint32_t)a; // send address
-  while(NEORV32_TWI.CTRL & (1 << TWI_CTRL_BUSY)); // wait until idle again
-
-  // check for ACK/NACK
-  if (NEORV32_TWI.CTRL & (1 << TWI_CTRL_ACK))
-    return 0; // ACK received
-  else
-    return 1; // NACK received
+  return neorv32_twi_trans(a); // transfer address
 }
 
 
@@ -165,14 +158,16 @@ int neorv32_twi_start_trans(uint8_t a) {
  **************************************************************************/
 int neorv32_twi_trans(uint8_t d) {
 
-  NEORV32_TWI.DATA = (uint32_t)d; // send data
-  while(NEORV32_TWI.CTRL & (1 << TWI_CTRL_BUSY)); // wait until idle again
+  NEORV32_TWI->DATA = (uint32_t)d; // send data
+  while (NEORV32_TWI->CTRL & (1 << TWI_CTRL_BUSY)); // wait until idle again
 
   // check for ACK/NACK
-  if (NEORV32_TWI.CTRL & (1 << TWI_CTRL_ACK))
+  if (NEORV32_TWI->CTRL & (1 << TWI_CTRL_ACK)) {
     return 0; // ACK received
-  else
+  }
+  else {
     return 1; // NACK received
+  }
 }
 
 
@@ -183,7 +178,7 @@ int neorv32_twi_trans(uint8_t d) {
  **************************************************************************/
 uint8_t neorv32_twi_get_data(void) {
 
-  return (uint8_t)NEORV32_TWI.DATA; // get RX data from previous transmission
+  return (uint8_t)NEORV32_TWI->DATA; // get RX data from previous transmission
 }
 
 
@@ -194,18 +189,34 @@ uint8_t neorv32_twi_get_data(void) {
  **************************************************************************/
 void neorv32_twi_generate_stop(void) {
 
-  NEORV32_TWI.CTRL |= (uint32_t)(1 << TWI_CTRL_STOP); // generate STOP condition
-  while(NEORV32_TWI.CTRL & (1 << TWI_CTRL_BUSY)); // wait until idle again
+  NEORV32_TWI->CTRL |= (uint32_t)(1 << TWI_CTRL_STOP); // generate STOP condition
+  while (NEORV32_TWI->CTRL & (1 << TWI_CTRL_BUSY)); // wait until idle again
 }
 
 
  /**********************************************************************//**
- * Generate START condition.
+ * Generate START (or REPEATED-START) condition.
  *
  * @note Blocking function.
  **************************************************************************/
 void neorv32_twi_generate_start(void) {
 
-  NEORV32_TWI.CTRL |= (1 << TWI_CTRL_START); // generate START condition
-  while(NEORV32_TWI.CTRL & (1 << TWI_CTRL_BUSY)); // wait until idle again
+  NEORV32_TWI->CTRL |= (1 << TWI_CTRL_START); // generate START condition
+  while (NEORV32_TWI->CTRL & (1 << TWI_CTRL_BUSY)); // wait until idle again
+}
+
+
+ /**********************************************************************//**
+ * Check if the TWI bus is currently claimed by any controller.
+ *
+ * @return 0: 0 if bus is not claimed, 1 if bus is claimed.
+ **************************************************************************/
+int neorv32_twi_bus_claimed(void) {
+
+  if (NEORV32_TWI->CTRL & (1 << TWI_CTRL_CLAIMED)) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
 }

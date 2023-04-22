@@ -8,7 +8,7 @@
 -- # ********************************************************************************************* #
 -- # BSD 3-Clause License                                                                          #
 -- #                                                                                               #
--- # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+-- # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 -- #                                                                                               #
 -- # Redistribution and use in source and binary forms, with or without modification, are          #
 -- # permitted provided that the following conditions are met:                                     #
@@ -48,6 +48,7 @@ entity neorv32_gptmr is
   port (
     -- host access --
     clk_i       : in  std_ulogic; -- global clock line
+    rstn_i      : in  std_ulogic; -- global reset line, low-active, async
     addr_i      : in  std_ulogic_vector(31 downto 0); -- address
     rden_i      : in  std_ulogic; -- read enable
     wren_i      : in  std_ulogic; -- write enable
@@ -58,7 +59,7 @@ entity neorv32_gptmr is
     clkgen_en_o : out std_ulogic; -- enable clock generator
     clkgen_i    : in  std_ulogic_vector(07 downto 0);
     -- interrupt --
-    irq_o       : out std_ulogic -- transmission done interrupt
+    irq_o       : out std_ulogic -- timer match interrupt
   );
 end neorv32_gptmr;
 
@@ -83,41 +84,36 @@ architecture neorv32_gptmr_rtl of neorv32_gptmr is
   signal wren   : std_ulogic; -- word write enable
   signal rden   : std_ulogic; -- read enable
 
-  -- clock generator --
-  signal gptmr_clk_en : std_ulogic;
-
   -- timer core --
   type timer_t is record
     count  : std_ulogic_vector(31 downto 0); -- counter register
     thres  : std_ulogic_vector(31 downto 0); -- threshold value
+    tick   : std_ulogic; -- clock generator tick
     match  : std_ulogic; -- count == thres
     cnt_we : std_ulogic; -- write access to count
   end record;
   signal timer : timer_t;
 
-  -- interrupt detector --
-  signal irq_detect : std_ulogic_vector(1 downto 0);
-
 begin
 
-  -- Access Control -------------------------------------------------------------------------
+  -- Host Access ----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
+
+  -- access control --
   acc_en <= '1' when (addr_i(hi_abb_c downto lo_abb_c) = gptmr_base_c(hi_abb_c downto lo_abb_c)) else '0';
   addr   <= gptmr_base_c(31 downto lo_abb_c) & addr_i(lo_abb_c-1 downto 2) & "00"; -- word aligned
   wren   <= acc_en and wren_i;
   rden   <= acc_en and rden_i;
 
-
-  -- Read/Write Access ----------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  rw_access: process(clk_i)
+  -- write access --
+  write_access: process(rstn_i, clk_i)
   begin
-    if rising_edge(clk_i) then
-      -- bus access acknowledge --
-      ack_o <= rden or wren;
-
-      -- write access --
+    if (rstn_i = '0') then
       timer.cnt_we <= '0';
+      ctrl         <= (others => '0');
+      timer.thres  <= (others => '0');
+    elsif rising_edge(clk_i) then
+      timer.cnt_we <= '0'; -- default
       if (wren = '1') then
         if (addr = gptmr_ctrl_addr_c) then -- control register
           ctrl(ctrl_en_c)    <= data_i(ctrl_en_c);
@@ -133,8 +129,14 @@ begin
           timer.cnt_we <= '1';
         end if;
       end if;
+    end if;
+  end process write_access;
 
-      -- read access --
+  -- read access --
+  read_access: process(clk_i)
+  begin
+    if rising_edge(clk_i) then
+      ack_o  <= rden or wren; -- bus access acknowledge
       data_o <= (others => '0');
       if (rden = '1') then
         case addr(3 downto 2) is
@@ -151,23 +153,19 @@ begin
         end case;
       end if;
     end if;
-  end process rw_access;
-
-  -- clock generator enable --
-  clkgen_en_o <= ctrl(ctrl_en_c);
-
-  -- clock select --
-  gptmr_clk_en <= clkgen_i(to_integer(unsigned(ctrl(ctrl_prsc2_c downto ctrl_prsc0_c))));
+  end process read_access;
 
 
   -- Timer Core -----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  timer_core: process(clk_i)
+  counter_core: process(rstn_i, clk_i)
   begin
-    if rising_edge(clk_i) then
+    if (rstn_i = '0') then
+      timer.count <= (others => '0');
+    elsif rising_edge(clk_i) then
       if (timer.cnt_we = '1') then -- write access
-        timer.count <= data_i;
-      elsif (ctrl(ctrl_en_c) = '1') and (gptmr_clk_en = '1') then -- enabled and clock tick
+        timer.count <= data_i; -- data_i will stay unchanged for min. 1 cycle after WREN has returned to low again
+      elsif (ctrl(ctrl_en_c) = '1') and (timer.tick = '1') then -- enabled and clock tick
         if (timer.match = '1') then
           if (ctrl(ctrl_mode_c) = '1') then -- reset counter if continuous mode
             timer.count <= (others => '0');
@@ -177,27 +175,29 @@ begin
         end if;
       end if;
     end if;
-  end process timer_core;
+  end process counter_core;
 
   -- counter = threshold? --
   timer.match <= '1' when (timer.count = timer.thres) else '0';
 
+  -- clock generator enable --
+  clkgen_en_o <= ctrl(ctrl_en_c);
 
-  -- Interrupt Generator --------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
+  -- clock select --
+  clock_select: process(clk_i)
+  begin
+    if rising_edge(clk_i) then
+      timer.tick <= clkgen_i(to_integer(unsigned(ctrl(ctrl_prsc2_c downto ctrl_prsc0_c))));
+    end if;
+  end process clock_select;
+
+  -- interrupt --
   irq_generator: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      if (ctrl(ctrl_en_c) = '0') then
-        irq_detect <= "00";
-      else
-        irq_detect <= irq_detect(0) & timer.match;
-      end if;
+      irq_o <= ctrl(ctrl_en_c) and timer.match;
     end if;
   end process irq_generator;
-
-  -- IRQ request to CPU --
-  irq_o <= '1' when (irq_detect = "01") else '0';
 
 
 end neorv32_gptmr_rtl;

@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -54,16 +54,21 @@
 
 // Prototypes
 void scan_twi(void);
-void set_speed(void);
+void set_clock(void);
 void send_twi(void);
+void check_claimed(void);
+void toggle_mack(void);
 uint32_t hexstr_to_uint(char *buffer, uint8_t length);
 void print_hex_byte(uint8_t data);
+
+// Global variables
+int bus_claimed;
 
 
 /**********************************************************************//**
  * This program provides an interactive console to communicate with TWI devices.
  *
- * @note This program requires the UART and the PWM to be synthesized.
+ * @note This program requires the UART to be synthesized.
  *
  * @return 0 if execution was successful
  **************************************************************************/
@@ -71,21 +76,19 @@ int main() {
 
   char buffer[8];
   int length = 0;
-  int bus_claimed = 0;
+  bus_claimed = 0;
 
   // check if UART unit is implemented at all
   if (neorv32_uart0_available() == 0) {
     return 1;
   }
 
-
   // capture all exceptions and give debug info via UART
   // this is not required, but keeps us safe
   neorv32_rte_setup();
 
-
-  // init UART at default baud rate, no parity bits, ho hw flow control
-  neorv32_uart0_setup(BAUD_RATE, PARITY_NONE, FLOW_CONTROL_NONE);
+  // setup UART at default baud rate, no interrupts
+  neorv32_uart0_setup(BAUD_RATE, 0);
 
   // check available hardware extensions and compare with compiler flags
   neorv32_rte_check_isa(0); // silent = 0 -> show message if isa mismatch
@@ -105,8 +108,8 @@ int main() {
   neorv32_uart0_printf("This program allows to create TWI transfers by hand.\n"
                       "Type 'help' to see the help menu.\n\n");
 
-  // configure TWI, second slowest clock
-  neorv32_twi_setup(CLK_PRSC_2048);
+  // configure TWI, second slowest clock, no clock stretching
+  neorv32_twi_setup(CLK_PRSC_2048, 15, 0);
 
   // no active bus session yet
   bus_claimed = 0;
@@ -128,7 +131,9 @@ int main() {
                           " start - generate START condition\n"
                           " stop  - generate STOP condition\n"
                           " send  - write & read single byte to/from bus\n"
-                          " speed - select bus clock\n"
+                          " clock - configure bus clock (will reset TWI module!)\n"
+                          " stat  - check if the TWI bus is currently claimed by any controller\n"
+                          " mack  - enable/disable MASTER-ACK (ACK send by controller)\n\n"
                           "Start a new transmission by generating a START condition. Next, transfer the 7-bit device address\n"
                           "and the R/W flag. After that, transfer your data to be written or send a 0xFF if you want to read\n"
                           "data from the bus. Finish the transmission by generating a STOP condition.\n\n");
@@ -148,8 +153,8 @@ int main() {
     else if (!strcmp(buffer, "scan")) {
       scan_twi();
     }
-    else if (!strcmp(buffer, "speed")) {
-      set_speed();
+    else if (!strcmp(buffer, "clock")) {
+      set_clock();
     }
     else if (!strcmp(buffer, "send")) {
       if (bus_claimed == 0) {
@@ -159,6 +164,12 @@ int main() {
       else {
         send_twi();
       }
+    }
+    else if (!strcmp(buffer, "stat")) {
+      check_claimed();
+    }
+    else if (!strcmp(buffer, "mack")) {
+      toggle_mack();
     }
     else {
       neorv32_uart0_printf("Invalid command. Type 'help' to see all commands.\n");
@@ -172,39 +183,35 @@ int main() {
 /**********************************************************************//**
  * TWI clock speed menu
  **************************************************************************/
-void set_speed(void) {
+void set_clock(void) {
 
+  const uint32_t PRSC_LUT[8] = {2, 4, 8, 64, 128, 1024, 2048, 4096};
   char terminal_buffer[2];
 
-  neorv32_uart0_printf("Select new clock prescaler (0..7): ");
+  neorv32_uart0_printf("Select new clock prescaler (0..7; one hex char): ");
   neorv32_uart0_scan(terminal_buffer, 2, 1); // 1 hex char plus '\0'
-  uint8_t prsc = (uint8_t)hexstr_to_uint(terminal_buffer, strlen(terminal_buffer));
+  int prsc = (int)hexstr_to_uint(terminal_buffer, strlen(terminal_buffer));
 
-  if ((prsc >= 0) && (prsc < 8)) { // valid?
-    NEORV32_TWI.CTRL = 0; // reset
-    NEORV32_TWI.CTRL = (1 << TWI_CTRL_EN) | (prsc << TWI_CTRL_PRSC0);
-    neorv32_uart0_printf("\nDone.\n");
-  }
-  else {
+  if ((prsc < 0) || (prsc > 7)) { // invalid?
     neorv32_uart0_printf("\nInvalid selection!\n");
     return;
   }
 
+  neorv32_uart0_printf("\nSelect new clock divider (0..15; one hex char): ");
+  neorv32_uart0_scan(terminal_buffer, 2, 1); // 1 hex char plus '\0'
+  int cdiv = (int)hexstr_to_uint(terminal_buffer, strlen(terminal_buffer));
+
+  neorv32_uart0_printf("\nEnable clock stretching (0=no, 1=yes)? ");
+  neorv32_uart0_scan(terminal_buffer, 2, 1); // 1 hex char plus '\0'
+  int csen = (int)hexstr_to_uint(terminal_buffer, strlen(terminal_buffer));
+
+  // set new configuration
+  neorv32_twi_setup(prsc, cdiv, csen);
+  bus_claimed = 0;
+
   // print new clock frequency
-  uint32_t div = 0;
-  switch (prsc) {
-    case 0: div = 4 * 2; break;
-    case 1: div = 4 * 4; break;
-    case 2: div = 4 * 8; break;
-    case 3: div = 4 * 64; break;
-    case 4: div = 4 * 128; break;
-    case 5: div = 4 * 1024; break;
-    case 6: div = 4 * 2048; break;
-    case 7: div = 4 * 4096; break;
-    default: div = 0; break;
-  }
-  uint32_t clock = NEORV32_SYSINFO.CLK / div;
-  neorv32_uart0_printf("New I2C clock: %u Hz\n", clock);
+  uint32_t clock = NEORV32_SYSINFO->CLK / (4 * PRSC_LUT[prsc] * (1 + cdiv));
+  neorv32_uart0_printf("\nNew I2C clock: %u Hz\n", clock);
 }
 
 
@@ -229,6 +236,42 @@ void scan_twi(void) {
 
   if (!num_devices) {
     neorv32_uart0_printf("No devices found.\n");
+  }
+}
+
+
+/**********************************************************************//**
+ * Check if the TWI is currently claimed.
+ **************************************************************************/
+void check_claimed(void) {
+
+  if (NEORV32_TWI->CTRL & (1 << TWI_CTRL_CLAIMED)) {
+    if (bus_claimed == 0) {
+      neorv32_uart0_printf("Bus claimed by another controller.\n");
+    }
+    else {
+      neorv32_uart0_printf("Bus claimed by NEORV32 TWI.\n");
+    }
+  }
+  else {
+    neorv32_uart0_printf("Bus is idle.\n");
+  }
+}
+
+
+/**********************************************************************//**
+ * Toggle MACK (ACK generated by controller/host)
+ **************************************************************************/
+void toggle_mack(void) {
+
+  // toggle MACK flag
+  NEORV32_TWI->CTRL ^= 1 << TWI_CTRL_MACK;
+
+  if (NEORV32_TWI->CTRL & (1 << TWI_CTRL_MACK)) {
+    neorv32_uart0_printf("MACK enabled.\n");
+  }
+  else {
+    neorv32_uart0_printf("MACK disabled.\n");
   }
 }
 

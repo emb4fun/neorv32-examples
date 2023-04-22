@@ -3,7 +3,7 @@
 -- # ********************************************************************************************* #
 -- # BSD 3-Clause License                                                                          #
 -- #                                                                                               #
--- # Copyright (c) 2020, Stephan Nolting. All rights reserved.                                     #
+-- # Copyright (c) 2022, Stephan Nolting. All rights reserved.                                     #
 -- #                                                                                               #
 -- # Redistribution and use in source and binary forms, with or without modification, are          #
 -- # permitted provided that the following conditions are met:                                     #
@@ -47,9 +47,11 @@ entity neorv32_boot_rom is
   port (
     clk_i  : in  std_ulogic; -- global clock line
     rden_i : in  std_ulogic; -- read enable
+    wren_i : in  std_ulogic; -- write enable
     addr_i : in  std_ulogic_vector(31 downto 0); -- address
     data_o : out std_ulogic_vector(31 downto 0); -- data out
-    ack_o  : out std_ulogic -- transfer acknowledge
+    ack_o  : out std_ulogic; -- transfer acknowledge
+    err_o  : out std_ulogic  -- transfer error
   );
 end neorv32_boot_rom;
 
@@ -76,8 +78,11 @@ begin
 
   -- Sanity Checks --------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  assert false report "NEORV32 PROCESSOR CONFIG NOTE: Implementing internal bootloader ROM (" & natural'image(boot_rom_size_c) & " bytes)." severity note;
-  assert not (boot_rom_size_c > boot_rom_max_size_c) report "NEORV32 PROCESSOR CONFIG ERROR! Boot ROM size out of range! Max "& natural'image(boot_rom_max_size_c) & " bytes." severity error;
+  assert false report "NEORV32 PROCESSOR CONFIG NOTE: Implementing internal bootloader ROM (" &
+                      natural'image(boot_rom_size_c) & " bytes)." severity note;
+
+  assert not (boot_rom_size_c > boot_rom_max_size_c) report "NEORV32 PROCESSOR CONFIG ERROR! Boot ROM size out of range! Max " &
+                                                            natural'image(boot_rom_max_size_c) & " bytes." severity error;
 
 
   -- Access Control -------------------------------------------------------------------------
@@ -91,7 +96,8 @@ begin
   mem_file_access: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      rden <= rden_i and acc_en;
+      rden  <= acc_en and rden_i;
+      err_o <= acc_en and wren_i;
       if (acc_en = '1') then -- reduce switching activity when not accessed
         rdata <= mem_rom(to_integer(unsigned(addr)));
       end if;

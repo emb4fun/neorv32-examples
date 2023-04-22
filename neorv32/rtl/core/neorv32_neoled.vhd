@@ -17,7 +17,7 @@
 -- # ********************************************************************************************* #
 -- # BSD 3-Clause License                                                                          #
 -- #                                                                                               #
--- # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+-- # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 -- #                                                                                               #
 -- # Redistribution and use in source and binary forms, with or without modification, are          #
 -- # permitted provided that the following conditions are met:                                     #
@@ -55,11 +55,12 @@ use neorv32.neorv32_package.all;
 
 entity neorv32_neoled is
   generic (
-    FIFO_DEPTH : natural -- TX FIFO depth (1..32k, power of two)
+    FIFO_DEPTH : natural -- NEOLED FIFO depth, has to be a power of two, min 1
   );
   port (
     -- host access --
     clk_i       : in  std_ulogic; -- global clock line
+    rstn_i      : in  std_ulogic; -- global reset line, low-active, async
     addr_i      : in  std_ulogic_vector(31 downto 0); -- address
     rden_i      : in  std_ulogic; -- read enable
     wren_i      : in  std_ulogic; -- write enable
@@ -120,7 +121,7 @@ architecture neorv32_neoled_rtl of neorv32_neoled is
   constant ctrl_t_1h_3_c   : natural := 23; -- r/w: pulse-clock ticks per ONE high-time bit 3
   constant ctrl_t_1h_4_c   : natural := 24; -- r/w: pulse-clock ticks per ONE high-time bit 4
   --
-  constant ctrl_irq_conf_c : natural := 27; -- r/w: interrupt config: 1=IRQ when buffer is empty, 0=IRQ when buffer is half-empty
+  constant ctrl_irq_conf_c : natural := 27; -- r/w: interrupt condition: 0=IRQ when buffer less than half full, 1=IRQ when buffer is empty
   constant ctrl_tx_empty_c : natural := 28; -- r/-: TX FIFO is empty
   constant ctrl_tx_half_c  : natural := 29; -- r/-: TX FIFO is at least half-full
   constant ctrl_tx_full_c  : natural := 30; -- r/-: TX FIFO is full
@@ -133,7 +134,6 @@ architecture neorv32_neoled_rtl of neorv32_neoled is
     strobe   : std_ulogic;
     clk_prsc : std_ulogic_vector(2 downto 0);
     irq_conf : std_ulogic;
-    -- pulse config --
     t_total  : std_ulogic_vector(4 downto 0);
     t0_high  : std_ulogic_vector(4 downto 0);
     t1_high  : std_ulogic_vector(4 downto 0);
@@ -141,7 +141,7 @@ architecture neorv32_neoled_rtl of neorv32_neoled is
   signal ctrl : ctrl_t;
 
   -- transmission buffer --
-  type tx_buffer_t is record
+  type tx_fifo_t is record
     we    : std_ulogic; -- write enable
     re    : std_ulogic; -- read enable
     clear : std_ulogic; -- sync reset, high-active
@@ -151,20 +151,12 @@ architecture neorv32_neoled_rtl of neorv32_neoled is
     free  : std_ulogic; -- free entry available?
     half  : std_ulogic; -- half full
   end record;
-  signal tx_buffer : tx_buffer_t;
-
-  -- interrupt generator --
-  type irq_t is record
-    set : std_ulogic;
-    buf : std_ulogic_vector(1 downto 0);
-  end record;
-  signal irq : irq_t;
+  signal tx_fifo : tx_fifo_t;
 
   -- serial transmission engine --
-  type serial_state_t is (S_IDLE, S_INIT, S_GETBIT, S_PULSE, S_STROBE);
   type serial_t is record
     -- state control --
-    state      : serial_state_t;
+    state      : std_ulogic_vector(2 downto 0);
     mode       : std_ulogic;
     done       : std_ulogic;
     busy       : std_ulogic;
@@ -177,7 +169,6 @@ architecture neorv32_neoled_rtl of neorv32_neoled is
     pulse_cnt  : std_ulogic_vector(4 downto 0);
     t_high     : std_ulogic_vector(4 downto 0);
     strobe_cnt : std_ulogic_vector(6 downto 0);
-    tx_out     : std_ulogic;
   end record;
   signal serial : serial_t;
 
@@ -185,27 +176,32 @@ begin
 
   -- Sanity Checks --------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  assert not ((is_power_of_two_f(FIFO_DEPTH) = false) or (FIFO_DEPTH < 1) or (FIFO_DEPTH > 32768)) report
-  "NEORV32 PROCESSOR CONFIG ERROR! Invalid <NEOLED.FIFO_DEPTH> buffer size configuration (1..32k)!" severity error;
+  assert not ((is_power_of_two_f(FIFO_DEPTH) = false) or (FIFO_DEPTH < 1) or (FIFO_DEPTH > 32768))
+    report "NEORV32 PROCESSOR CONFIG ERROR! Invalid NEOLED FIFO size configuration (1..32k)." severity error;
 
 
-  -- Access Control -------------------------------------------------------------------------
+  -- Host Access ----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
+
+  -- access control --
   acc_en <= '1' when (addr_i(hi_abb_c downto lo_abb_c) = neoled_base_c(hi_abb_c downto lo_abb_c)) else '0';
   addr   <= neoled_base_c(31 downto lo_abb_c) & addr_i(lo_abb_c-1 downto 2) & "00"; -- word aligned
   wren   <= acc_en and wren_i;
   rden   <= acc_en and rden_i;
 
-
-  -- Read/Write Access ----------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  rw_access: process(clk_i)
+  -- write access --
+  write_access: process(rstn_i, clk_i)
   begin
-    if rising_edge(clk_i) then
-      -- access acknowledge --
-      ack_o <= wren or rden;
-
-      -- write access: control register --
+    if (rstn_i = '0') then
+      ctrl.enable   <= '0';
+      ctrl.mode     <= '0';
+      ctrl.strobe   <= '0';
+      ctrl.clk_prsc <= (others => '0');
+      ctrl.irq_conf <= '0';
+      ctrl.t_total  <= (others => '0');
+      ctrl.t0_high  <= (others => '0');
+      ctrl.t1_high  <= (others => '0');
+    elsif rising_edge(clk_i) then
       if (wren = '1') and (addr = neoled_ctrl_addr_c) then
         ctrl.enable   <= data_i(ctrl_en_c);
         ctrl.mode     <= data_i(ctrl_mode_c);
@@ -216,8 +212,14 @@ begin
         ctrl.t0_high  <= data_i(ctrl_t_0h_4_c  downto ctrl_t_0h_0_c);
         ctrl.t1_high  <= data_i(ctrl_t_1h_4_c  downto ctrl_t_1h_0_c);
       end if;
+    end if;
+  end process write_access;
 
-      -- read access: control register --
+  -- read access --
+  read_access: process(clk_i)
+  begin
+    if rising_edge(clk_i) then
+      ack_o  <= wren or rden; -- access acknowledge
       data_o <= (others => '0');
       if (rden = '1') then -- and (addr = neoled_ctrl_addr_c) then
         data_o(ctrl_en_c)                            <= ctrl.enable;
@@ -230,53 +232,21 @@ begin
         data_o(ctrl_t_0h_4_c  downto ctrl_t_0h_0_c)  <= ctrl.t0_high;
         data_o(ctrl_t_1h_4_c  downto ctrl_t_1h_0_c)  <= ctrl.t1_high;
         --
-        data_o(ctrl_tx_empty_c)                      <= not tx_buffer.avail;
-        data_o(ctrl_tx_half_c)                       <= tx_buffer.half;
-        data_o(ctrl_tx_full_c)                       <= not tx_buffer.free;
+        data_o(ctrl_tx_empty_c)                      <= not tx_fifo.avail;
+        data_o(ctrl_tx_half_c)                       <= tx_fifo.half;
+        data_o(ctrl_tx_full_c)                       <= not tx_fifo.free;
         data_o(ctrl_tx_busy_c)                       <= serial.busy;
       end if;
     end if;
-  end process rw_access;
+  end process read_access;
 
   -- enable external clock generator --
   clkgen_en_o <= ctrl.enable;
 
-  -- FIFO write access --
-  tx_buffer.we    <= '1' when (wren = '1') and (addr = neoled_data_addr_c) else '0';
-  tx_buffer.wdata <= ctrl.strobe & ctrl.mode & data_i;
-  tx_buffer.clear <= not ctrl.enable;
-
-
-  -- IRQ Generator --------------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  irq_select: process(ctrl, tx_buffer, serial.done)
-  begin
-    if (FIFO_DEPTH = 1) or (ctrl.irq_conf = '1') then
-      irq.set <= tx_buffer.free and serial.done; -- fire IRQ if FIFO is empty
-    else
-      irq.set <= not tx_buffer.half; -- fire IRQ if FIFO is less than half-full
-    end if;
-  end process irq_select;
-
-  -- Interrupt Edge Detector --
-  irq_detect: process(clk_i)
-  begin
-    if rising_edge(clk_i) then
-      if (ctrl.enable = '0') then
-        irq.buf <= "00";
-      else
-        irq.buf <= irq.buf(0) & irq.set;
-      end if;
-    end if;
-  end process irq_detect;
-
-  -- IRQ request to CPU --
-  irq_o <= '1' when (irq.buf = "01") else '0';
-
 
   -- TX Buffer (FIFO) -----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  tx_data_fifo: neorv32_fifo
+  data_buffer: neorv32_fifo
   generic map (
     FIFO_DEPTH => FIFO_DEPTH, -- number of fifo entries; has to be a power of two; min 1
     FIFO_WIDTH => 32+2,       -- size of data elements in fifo
@@ -285,23 +255,34 @@ begin
   )
   port map (
     -- control --
-    clk_i   => clk_i,           -- clock, rising edge
-    rstn_i  => '1',             -- async reset, low-active
-    clear_i => tx_buffer.clear, -- sync reset, high-active
-    level_o => open,            -- fill level
-    half_o  => tx_buffer.half,  -- FIFO is at least half full
+    clk_i   => clk_i,         -- clock, rising edge
+    rstn_i  => rstn_i,        -- async reset, low-active
+    clear_i => tx_fifo.clear, -- sync reset, high-active
+    half_o  => tx_fifo.half,  -- FIFO is at least half full
     -- write port --
-    wdata_i => tx_buffer.wdata, -- write data
-    we_i    => tx_buffer.we,    -- write enable
-    free_o  => tx_buffer.free,  -- at least one entry is free when set
+    wdata_i => tx_fifo.wdata, -- write data
+    we_i    => tx_fifo.we,    -- write enable
+    free_o  => tx_fifo.free,  -- at least one entry is free when set
     -- read port --
-    re_i    => tx_buffer.re,    -- read enable
-    rdata_o => tx_buffer.rdata, -- read data
-    avail_o => tx_buffer.avail  -- data available when set
+    re_i    => tx_fifo.re,    -- read enable
+    rdata_o => tx_fifo.rdata, -- read data
+    avail_o => tx_fifo.avail  -- data available when set
   );
 
-  -- try to get new TX data --
-  tx_buffer.re <= '1' when (serial.state = S_IDLE) else '0';
+  tx_fifo.re    <= '1' when (serial.state = "100") else '0';
+  tx_fifo.we    <= '1' when (wren = '1') and (addr = neoled_data_addr_c) else '0';
+  tx_fifo.wdata <= ctrl.strobe & ctrl.mode & data_i;
+  tx_fifo.clear <= not ctrl.enable;
+
+  -- IRQ generator --
+  irq_generator: process(clk_i)
+  begin
+    if rising_edge(clk_i) then
+      irq_o <= ctrl.enable and (
+               ((not ctrl.irq_conf) and (not tx_fifo.avail)) or -- fire IRQ if FIFO is empty
+               ((    ctrl.irq_conf) and (not tx_fifo.half)));   -- fire IRQ if FIFO is less than half full
+    end if;
+  end process irq_generator;
 
 
   -- Serial TX Engine -----------------------------------------------------------------------
@@ -316,97 +297,88 @@ begin
       serial.done <= '0';
 
       -- FSM --
-      if (ctrl.enable = '0') then -- disabled
-        serial.state <= S_IDLE;
-      else
-        case serial.state is
+      serial.state(2) <= ctrl.enable;
+      case serial.state is
 
-          when S_IDLE => -- waiting for new TX data
-          -- ------------------------------------------------------------
-            serial.tx_out     <= '0';
-            serial.pulse_cnt  <= (others => '0');
-            serial.strobe_cnt <= (others => '0');
-            if (tx_buffer.avail = '1') then
-              serial.state <= S_INIT;
-            end if;
-
-          when S_INIT => -- initialize TX shift engine
-          -- ------------------------------------------------------------
-            if (tx_buffer.rdata(33) = '0') then -- send data
-              if (tx_buffer.rdata(32) = '0') then -- mode = "RGB" 
-                serial.mode    <= '0';
-                serial.bit_cnt <= "011000"; -- total number of bits to send: 3x8=24
-              else -- mode = "RGBW"
-                serial.mode    <= '1';
-                serial.bit_cnt <= "100000"; -- total number of bits to send: 4x8=32
-              end if;
-              serial.sreg  <= tx_buffer.rdata(31 downto 00);
-              serial.state <= S_GETBIT;
+        when "100" => -- IDLE: waiting for new TX data, prepare transmission
+        -- ------------------------------------------------------------
+          neoled_o          <= '0';
+          serial.pulse_cnt  <= (others => '0');
+          serial.strobe_cnt <= (others => '0');
+          serial.sreg       <= tx_fifo.rdata(31 downto 0);
+          if (tx_fifo.rdata(32) = '0') then -- "RGB" mode
+            serial.mode    <= '0';
+            serial.bit_cnt <= "011000"; -- total number of bits to send: 3x8=24
+          else -- "RGBW" mode
+            serial.mode    <= '1';
+            serial.bit_cnt <= "100000"; -- total number of bits to send: 4x8=32
+          end if;
+          if (tx_fifo.avail = '1') then
+            if (tx_fifo.rdata(33) = '0') then -- send data
+              serial.state(1 downto 0) <= "01";
             else -- send RESET command
-              serial.state <= S_STROBE;
+              serial.state(1 downto 0) <= "11";
             end if;
+          end if;
 
-          when S_GETBIT => -- get next TX bit
-          -- ------------------------------------------------------------
-            serial.sreg      <= serial.sreg(serial.sreg'left-1 downto 0) & '0'; -- shift left by one position (MSB-first)
-            serial.bit_cnt   <= std_ulogic_vector(unsigned(serial.bit_cnt) - 1);
-            serial.pulse_cnt <= (others => '0');
-            if (serial.next_bit = '0') then -- send zero-bit
-              serial.t_high <= ctrl.t0_high;
-            else -- send one-bit
-              serial.t_high <= ctrl.t1_high;
-            end if;
-            if (serial.bit_cnt = "000000") then -- all done?
-              serial.tx_out <= '0';
-              serial.done   <= '1'; -- done sending data
-              serial.state  <= S_IDLE;
-            else -- send current data MSB
-              serial.tx_out <= '1';
-              serial.state  <= S_PULSE; -- transmit single pulse
-            end if;
+        when "101" => -- GETBIT: get next TX bit
+        -- ------------------------------------------------------------
+          serial.sreg      <= serial.sreg(serial.sreg'left-1 downto 0) & '0'; -- shift left by one position (MSB-first)
+          serial.bit_cnt   <= std_ulogic_vector(unsigned(serial.bit_cnt) - 1);
+          serial.pulse_cnt <= (others => '0');
+          if (serial.next_bit = '0') then -- send zero-bit
+            serial.t_high <= ctrl.t0_high;
+          else -- send one-bit
+            serial.t_high <= ctrl.t1_high;
+          end if;
+          if (serial.bit_cnt = "000000") then -- all done?
+            neoled_o                 <= '0';
+            serial.done              <= '1'; -- done sending data
+            serial.state(1 downto 0) <= "00";
+          else -- send current data MSB
+            neoled_o                 <= '1';
+            serial.state(1 downto 0) <= "10"; -- transmit single pulse
+          end if;
 
-          when S_PULSE => -- send pulse with specific duty cycle
-          -- ------------------------------------------------------------
-            -- total pulse length = ctrl.t_total
-            -- pulse high time    = serial.t_high
-            if (serial.pulse_clk = '1') then
+        when "110" => -- PULSE: send pulse with specific duty cycle
+        -- ------------------------------------------------------------
+          -- total pulse length = ctrl.t_total
+          -- pulse high time    = serial.t_high
+          if (serial.pulse_clk = '1') then
+            serial.pulse_cnt <= std_ulogic_vector(unsigned(serial.pulse_cnt) + 1);
+            -- T_high reached? --
+            if (serial.pulse_cnt = serial.t_high) then
+              neoled_o <= '0';
+            end if;
+            -- T_total reached? --
+            if (serial.pulse_cnt = ctrl.t_total) then
+              serial.state(1 downto 0) <= "01"; -- get next bit to send
+            end if;
+          end if;
+
+        when "111" => -- STROBE: strobe LED data ("RESET" command)
+        -- ------------------------------------------------------------
+          -- wait for 127 * ctrl.t_total to ensure RESET
+          if (serial.pulse_clk = '1') then
+            -- T_total reached? --
+            if (serial.pulse_cnt = ctrl.t_total) then
+              serial.pulse_cnt  <= (others => '0');
+              serial.strobe_cnt <= std_ulogic_vector(unsigned(serial.strobe_cnt) + 1);
+            else
               serial.pulse_cnt <= std_ulogic_vector(unsigned(serial.pulse_cnt) + 1);
-              -- T_high reached? --
-              if (serial.pulse_cnt = serial.t_high) then
-                serial.tx_out <= '0';
-              end if;
-              -- T_total reached? --
-              if (serial.pulse_cnt = ctrl.t_total) then
-                serial.state <= S_GETBIT; -- get next bit to send
-              end if;
             end if;
+          end if;
+          -- number of LOW periods reached for RESET? --
+          if (and_reduce_f(serial.strobe_cnt) = '1') then
+            serial.done              <= '1'; -- done sending RESET
+            serial.state(1 downto 0) <= "00";
+          end if;
 
-          when S_STROBE => -- strobe LED data ("RESET" command)
-          -- ------------------------------------------------------------
-            -- wait for 127 * ctrl.t_total to _ensure_ RESET
-            if (serial.pulse_clk = '1') then
-              -- T_total reached? --
-              if (serial.pulse_cnt = ctrl.t_total) then
-                serial.pulse_cnt  <= (others => '0');
-                serial.strobe_cnt <= std_ulogic_vector(unsigned(serial.strobe_cnt) + 1);
-              else
-                serial.pulse_cnt <= std_ulogic_vector(unsigned(serial.pulse_cnt) + 1);
-              end if;
-            end if;
-            -- number of LOW periods reached for RESET? --
-            if (and_reduce_f(serial.strobe_cnt) = '1') then
-              serial.done  <= '1'; -- done sending RESET
-              serial.state <= S_IDLE;
-            end if;
+        when others => -- "0--": disabled
+        -- ------------------------------------------------------------
+          serial.state(1 downto 0) <= "00";
 
-          when others => -- undefined
-          -- ------------------------------------------------------------
-            serial.state <= S_IDLE;
-
-        end case;
-      end if;
-      -- serial data tx_out --
-      neoled_o <= serial.tx_out and ctrl.enable;
+      end case;
     end if;
   end process serial_engine;
 
@@ -414,7 +386,7 @@ begin
   serial.next_bit <= serial.sreg(23) when (serial.mode = '0') else serial.sreg(31);
 
   -- TX engine status --
-  serial.busy <= '0' when (serial.state = S_IDLE) else '1';
+  serial.busy <= '0' when (serial.state(1 downto 0) = "00") else '1';
 
 
 end neorv32_neoled_rtl;

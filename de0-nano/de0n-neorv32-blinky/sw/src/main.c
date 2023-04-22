@@ -74,14 +74,14 @@
 /*************************************************************************/
 static int neorv32_Init (void)
 {
-   neorv32_uart0_setup(BAUD_RATE, PARITY_NONE, FLOW_CONTROL_NONE);
+   neorv32_uart_setup(NEORV32_UART0, BAUD_RATE, 0);
 
    /* 
     * Check if GPIO unit is implemented at all
     */
    if (0 == neorv32_gpio_available()) 
    {
-      neorv32_uart0_print("\nError! No GPIO unit synthesized!\n");
+      neorv32_uart_printf(NEORV32_UART0, "\nError! No GPIO unit synthesized!\n");
       return(-1);
    }
 
@@ -114,7 +114,7 @@ int main (void)
     */
    if (neorv32_Init() != 0) return(1);
     
-   neorv32_uart0_print("\nRunning light\n");
+   neorv32_uart_printf(NEORV32_UART0, "\nRunning light\n");
 
    /* Clear gpio output */
    neorv32_gpio_port_set(0);

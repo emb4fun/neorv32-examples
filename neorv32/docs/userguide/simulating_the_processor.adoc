@@ -12,8 +12,14 @@ That is used for running the RISC-V architecture tests, in order to guarantee co
 On the other hand, http://vunit.github.io/[VUnit] and http://vunit.github.io/verification_components/user_guide.html[Verification Components]
 are used for verifying the functionality of the various peripherals from a hardware point of view.
 
+.Xilinx Vivado / ISIM
+[IMPORTANT]
+When using Xilinx Vivado (ISIM for simulation) make sure to **turn of** "incremental compilation" (_Project Setting_
+-> _Simulation_ -> _Advanced_ -> _Enable incremental compilation). This will slow down simulation relaunch but will
+ensure that all application images (`*_image.vhd`) are reanalyzed when recompiling the NEORV32 application or bootloader
+
 [TIP]
-The processor can check if it is being simulated by checking the SYSINFO _SYSINFO_SOC_IS_SIM_ flag
+The processor can check if it is being _simulated_ by checking the SYSINFO _SYSINFO_SOC_IS_SIM_ flag
 (see https://stnolting.github.io/neorv32/#_system_configuration_information_memory_sysinfo).
 Note that this flag is not guaranteed to be set correctly (depending on the HDL toolchain's pragma support).
 
@@ -22,8 +28,12 @@ Note that this flag is not guaranteed to be set correctly (depending on the HDL 
 
 A plain-VHDL (no third-party libraries) testbench (`sim/simple/neorv32_tb.simple.vhd`) can be used for simulating and
 testing the processor.
-This testbench features a 100MHz clock and enables all optional peripheral and CPU extensions except for the `E`
-extension and the TRNG IO module (that CANNOT be simulated due to its combinatorial (looped) architecture).
+This testbench features a 100MHz clock and enables all optional peripheral and CPU extensions except for the `E`.
+
+.True Random Number Generator
+[NOTE]
+The NEORV32 TRNG will be set to "simulation mode" when enabled for simulation (replacing the ring-oscillators
+by pseudo-random LFSRs). See the neoTRNG documentation for more information.
 
 The simulation setup is configured via the "User Configuration" section located right at the beginning of
 the testbench's architecture. Each configuration constant provides comments to explain the functionality.
@@ -46,7 +56,6 @@ Attributes:
 * `r` = read
 * `w` = write
 * `e` = execute
-* `a` = atomic accesses possible
 * `8` = byte-accessible
 * `16` = half-word-accessible
 * `32` = word-accessible
@@ -56,11 +65,11 @@ Attributes:
 [cols="^4,>3,^5,<11"]
 [options="header",grid="rows"]
 |=======================
-| Base address | Size          | Attributes           | Description
-| `0x00000000` | `imem_size_c` | `r/w/e,  a, 8/16/32` | external IMEM (initialized with application image)
-| `0x80000000` | `dmem_size_c` | `r/w/e,  a, 8/16/32` | external DMEM
-| `0xf0000000` |      64 bytes | `r/w/e, !a, 8/16/32` | external "IO" memory, atomic accesses will fail
-| `0xff000000` |       4 bytes | `-/w/-,  a,  -/-/32` | memory-mapped register to trigger "machine external", "machine software" and "SoC Fast Interrupt" interrupts
+| Base address | Size          | Attributes       | Description
+| `0x00000000` | `imem_size_c` | `r/w/e  8/16/32` | external IMEM (initialized with application image)
+| `0x80000000` | `dmem_size_c` | `r/w/e  8/16/32` | external DMEM
+| `0xf0000000` |      64 bytes | `r/w/e  8/16/32` | external "IO" memory
+| `0xff000000` |       4 bytes | `-/w/-   -/-/32` | memory-mapped register to trigger "machine external", "machine software" and "SoC Fast Interrupt" interrupts
 |=======================
 
 [IMPORTANT]
@@ -96,7 +105,7 @@ _USER_FLAGS_ variable (do not forget the `-D` suffix flag):
 
 [source, bash]
 ----
-sw/example/blink_led$ make USER_FLAGS+=-DUART0_SIM_MODE clean_all all
+sw/example/demo_blink_led$ make USER_FLAGS+=-DUART0_SIM_MODE clean_all all
 ----
 
 The provided define will change the default UART0/UART1 setup function in order to set the simulation
@@ -130,7 +139,7 @@ faster / direct-to-console UART output.
 
 [source, bash]
 ----
-sw/example/blink_led$ make USER_FLAGS+=-DUART0_SIM_MODE clean_all sim
+sw/example/demo_blink_led$ make USER_FLAGS+=-DUART0_SIM_MODE clean_all sim
 [...]
 Blinking LED demo program
 ----
@@ -141,7 +150,7 @@ Blinking LED demo program
 
 To do a quick test of the NEORV32 make sure to have https://github.com/ghdl/ghdl[GHDL] and a
 https://github.com/stnolting/riscv-gcc-prebuilt[RISC-V gcc toolchain] installed.
-Navigate to the project's `sw/example/hello_world` folder and run `make USER_FLAGS+=-DUART0_SIM_MODE MARCH=rv32imac clean_all sim`:
+Navigate to the project's `sw/example/hello_world` folder and run `make USER_FLAGS+=-DUART0_SIM_MODE MARCH=rv32imc clean_all sim`:
 
 [TIP]
 The simulator will output some _sanity check_ notes (and warnings or even errors if something is ill-configured)
@@ -149,7 +158,7 @@ right at the beginning of the simulation to give a brief overview of the actual 
 
 [source, bash]
 ----
-stnolting@Einstein:/mnt/n/Projects/neorv32/sw/example/hello_world$ make USER_FLAGS+=-DUART0_SIM_MODE MARCH=rv32imac clean_all sim
+stnolting@Einstein:/mnt/n/Projects/neorv32/sw/example/hello_world$ make USER_FLAGS+=-DUART0_SIM_MODE MARCH=rv32imc clean_all sim
 ../../../sw/lib/source/neorv32_uart.c: In function 'neorv32_uart0_setup':
 ../../../sw/lib/source/neorv32_uart.c:301:4: warning: #warning UART0_SIM_MODE (primary UART) enabled! Sending all UART0.TX data to text.io simulation output instead of real UART0 transmitter. Use this for simulations only! [-Wcpp]
   301 |   #warning UART0_SIM_MODE (primary UART) enabled! Sending all UART0.TX data to text.io simulation output instead of real UART0 transmitter. Use this for simulations only! <1>
@@ -162,18 +171,16 @@ Installing application image to ../../../rtl/core/neorv32_application_image.vhd 
 Simulating neorv32_application_image.vhd...
 Tip: Compile application with USER_FLAGS+=-DUART[0/1]_SIM_MODE to auto-enable UART[0/1]'s simulation mode (redirect UART output to simulator console). <4>
 Using simulation runtime args: --stop-time=10ms <5>
-../rtl/core/neorv32_top.vhd:347:3:@0ms:(assertion note): NEORV32 PROCESSOR IO Configuration: GPIO MTIME UART0 UART1 SPI TWI PWM WDT CFS SLINK NEOLED XIRQ <6>
+../rtl/core/neorv32_top.vhd:347:3:@0ms:(assertion note): NEORV32 PROCESSOR IO Configuration: GPIO MTIME UART0 UART1 SPI TWI PWM WDT CFS NEOLED XIRQ <6>
 ../rtl/core/neorv32_top.vhd:370:3:@0ms:(assertion note): NEORV32 PROCESSOR CONFIG NOTE: Boot configuration: Direct boot from memory (processor-internal IMEM).
 ../rtl/core/neorv32_top.vhd:394:3:@0ms:(assertion note): NEORV32 PROCESSOR CONFIG NOTE: Implementing on-chip debugger (OCD).
-../rtl/core/neorv32_cpu.vhd:169:3:@0ms:(assertion note): NEORV32 CPU ISA Configuration (MARCH): RV32IMACU_Zbb_Zicsr_Zifencei_Zfinx_Debug
-../rtl/core/neorv32_cpu.vhd:189:3:@0ms:(assertion note): NEORV32 CPU CONFIG NOTE: Implementing NO dedicated hardware reset for uncritical registers (default, might reduce area). Set package constant <dedicated_reset_c> = TRUE to configure a DEFINED reset value for all CPU registers.
+../rtl/core/neorv32_cpu.vhd:169:3:@0ms:(assertion note): NEORV32 CPU ISA Configuration (MARCH): RV32IMCU_Zbb_Zicsr_Zifencei_Zfinx_Debug
 ../rtl/core/neorv32_imem.vhd:107:3:@0ms:(assertion note): NEORV32 PROCESSOR CONFIG NOTE: Implementing processor-internal IMEM as ROM (16384 bytes), pre-initialized with application (4612 bytes).
 ../rtl/core/neorv32_dmem.vhd:89:3:@0ms:(assertion note): NEORV32 PROCESSOR CONFIG NOTE: Implementing processor-internal DMEM (RAM, 8192 bytes).
 ../rtl/core/neorv32_wishbone.vhd:136:3:@0ms:(assertion note): NEORV32 PROCESSOR CONFIG NOTE: External Bus Interface - Implementing STANDARD Wishbone protocol.
 ../rtl/core/neorv32_wishbone.vhd:140:3:@0ms:(assertion note): NEORV32 PROCESSOR CONFIG NOTE: External Bus Interface - Implementing auto-timeout (255 cycles).
 ../rtl/core/neorv32_wishbone.vhd:144:3:@0ms:(assertion note): NEORV32 PROCESSOR CONFIG NOTE: External Bus Interface - Implementing LITTLE-endian byte order.
 ../rtl/core/neorv32_wishbone.vhd:148:3:@0ms:(assertion note): NEORV32 PROCESSOR CONFIG NOTE: External Bus Interface - Implementing registered RX path.
-../rtl/core/neorv32_slink.vhd:161:3:@0ms:(assertion note): NEORV32 PROCESSOR CONFIG NOTE: Implementing 8 RX and 8 TX stream links.
 <7>
                                                                                        ##
                                                                                        ##         ##   ##   ##

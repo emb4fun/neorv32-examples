@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2022, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -35,7 +35,6 @@
 
 /**********************************************************************//**
  * @file neorv32_gpio.c
- * @author Stephan Nolting
  * @brief General purpose input/output port unit (GPIO) HW driver source file.
  *
  * @note These functions should only be used if the GPIO unit was synthesized (IO_GPIO_EN = true).
@@ -52,7 +51,7 @@
  **************************************************************************/
 int neorv32_gpio_available(void) {
 
-  if (NEORV32_SYSINFO.SOC & (1 << SYSINFO_SOC_IO_GPIO)) {
+  if (NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_GPIO)) {
     return 1;
   }
   else {
@@ -71,10 +70,10 @@ void neorv32_gpio_pin_set(int pin) {
   uint32_t mask = (uint32_t)(1 << (pin & 0x1f));
 
   if (pin < 32) {
-    NEORV32_GPIO.OUTPUT_LO |= mask;
+    NEORV32_GPIO->OUTPUT_LO |= mask;
   }
   else {
-    NEORV32_GPIO.OUTPUT_HI |= mask;
+    NEORV32_GPIO->OUTPUT_HI |= mask;
   }
 }
 
@@ -89,10 +88,10 @@ void neorv32_gpio_pin_clr(int pin) {
   uint32_t mask = (uint32_t)(1 << (pin & 0x1f));
 
   if (pin < 32) {
-    NEORV32_GPIO.OUTPUT_LO &= ~mask;
+    NEORV32_GPIO->OUTPUT_LO &= ~mask;
   }
   else {
-    NEORV32_GPIO.OUTPUT_HI &= ~mask;
+    NEORV32_GPIO->OUTPUT_HI &= ~mask;
   }
 }
 
@@ -107,10 +106,10 @@ void neorv32_gpio_pin_toggle(int pin) {
   uint32_t mask = (uint32_t)(1 << (pin & 0x1f));
 
   if (pin < 32) {
-    NEORV32_GPIO.OUTPUT_LO ^= mask;
+    NEORV32_GPIO->OUTPUT_LO ^= mask;
   }
   else {
-    NEORV32_GPIO.OUTPUT_HI ^= mask;
+    NEORV32_GPIO->OUTPUT_HI ^= mask;
   }
 }
 
@@ -126,10 +125,10 @@ uint32_t neorv32_gpio_pin_get(int pin) {
   uint32_t mask = (uint32_t)(1 << (pin & 0x1f));
 
   if (pin < 32) {
-    return NEORV32_GPIO.INPUT_LO & mask;
+    return NEORV32_GPIO->INPUT_LO & mask;
   }
   else {
-    return NEORV32_GPIO.INPUT_HI & mask;
+    return NEORV32_GPIO->INPUT_HI & mask;
   }
 }
 
@@ -143,12 +142,12 @@ void neorv32_gpio_port_set(uint64_t port_data) {
 
   union {
     uint64_t uint64;
-    uint32_t uint32[sizeof(uint64_t)/2];
+    uint32_t uint32[sizeof(uint64_t)/sizeof(uint32_t)];
   } data;
 
   data.uint64 = port_data;
-  NEORV32_GPIO.OUTPUT_LO = data.uint32[0];
-  NEORV32_GPIO.OUTPUT_HI = data.uint32[1];
+  NEORV32_GPIO->OUTPUT_LO = data.uint32[0];
+  NEORV32_GPIO->OUTPUT_HI = data.uint32[1];
 }
 
 
@@ -161,11 +160,11 @@ uint64_t neorv32_gpio_port_get(void) {
 
   union {
     uint64_t uint64;
-    uint32_t uint32[sizeof(uint64_t)/2];
+    uint32_t uint32[sizeof(uint64_t)/sizeof(uint32_t)];
   } data;
 
-  data.uint32[0] = NEORV32_GPIO.INPUT_LO;
-  data.uint32[1] = NEORV32_GPIO.INPUT_HI;
+  data.uint32[0] = NEORV32_GPIO->INPUT_LO;
+  data.uint32[1] = NEORV32_GPIO->INPUT_HI;
 
   return data.uint64;
 }

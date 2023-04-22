@@ -1,6 +1,6 @@
-/*
- * FreeRTOS Kernel V10.3.0
- * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+/******************************************************************************
+ * FreeRTOS Kernel V10.4.4
+ * Copyright (C) 2022 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -23,7 +23,8 @@
  * http://aws.amazon.com/freertos
  *
  * 1 tab == 4 spaces!
- */
+ ******************************************************************************/
+
 
 /******************************************************************************
  * This project provides two demo applications.  A simple blinky style project,
@@ -40,11 +41,12 @@
  * THE http://www.FreeRTOS.org WEB SITE FOR FULL INFORMATION ON USING THIS DEMO
  * APPLICATION, AND ITS ASSOCIATE FreeRTOS ARCHITECTURE PORT!
  *
- */
+ ******************************************************************************/
 
-/*
+
+/******************************************************************************
  * Modified for the NEORV32 processor by Stephan Nolting.
- */
+ ******************************************************************************/
 
 /* UART hardware constants. */
 #define BAUD_RATE 19200
@@ -119,19 +121,50 @@ int main( void )
 
 /*-----------------------------------------------------------*/
 
+/* Handle NEORV32-specific interrupts */
+void freertos_risc_v_application_interrupt_handler(void) {
+
+  // acknowledge/clear ALL pending interrupt sources here - adapt this for your setup
+  neorv32_cpu_csr_write(CSR_MIP, 0);
+
+  // debug output - Use the value from the mcause CSR to call interrupt-specific handlers
+  neorv32_uart0_printf("\n<NEORV32-IRQ> mcause = 0x%x </NEORV32-IRQ>\n", neorv32_cpu_csr_read(CSR_MCAUSE));
+}
+
+/* Handle NEORV32-specific exceptions */
+void freertos_risc_v_application_exception_handler(void) {
+
+  // debug output - Use the value from the mcause CSR to call exception-specific handlers
+  neorv32_uart0_printf("\n<NEORV32-EXC> mcause = 0x%x </NEORV32-EXC>\n", neorv32_cpu_csr_read(CSR_MCAUSE));
+}
+
+/*-----------------------------------------------------------*/
+
 static void prvSetupHardware( void )
 {
-  // configure trap handler entry point
+  // install the freeRTOS trap handler
   neorv32_cpu_csr_write(CSR_MTVEC, (uint32_t)&freertos_risc_v_trap_handler);
 
   // clear GPIO.out port
   neorv32_gpio_port_set(0);
 
-  // init UART at default baud rate, no parity bits, ho hw flow control
-  neorv32_uart0_setup(BAUD_RATE, PARITY_NONE, FLOW_CONTROL_NONE);
+  // setup UART at default baud rate, no interrupts (yet)
+  neorv32_uart0_setup(BAUD_RATE, 0);
 
-  // check available hardware extensions and compare with compiler flags
+  // check clock tick configuration
+  if (NEORV32_SYSINFO->CLK != (uint32_t)configCPU_CLOCK_HZ) {
+    neorv32_uart0_printf("Warning! Incorrect 'configCPU_CLOCK_HZ' configuration!\n"
+                         "Is %u Hz but should be %u Hz.\n\n", (uint32_t)configCPU_CLOCK_HZ, NEORV32_SYSINFO->CLK);
+  }
+
+  // check available hardware ISA extensions and compare with compiler flags
   neorv32_rte_check_isa(0); // silent = 0 -> show message if isa mismatch
+
+  // enable and configure further NEORV32-specific modules if required
+  // ...
+
+  // enable NEORV32-specific interrupts if required
+  // ...
 }
 
 /*-----------------------------------------------------------*/
@@ -145,7 +178,7 @@ void vToggleLED( void )
 
 void vSendString( const char * pcString )
 {
-	neorv32_uart0_print( ( const char * ) pcString );
+	neorv32_uart0_puts( ( const char * ) pcString );
 }
 
 /*-----------------------------------------------------------*/
@@ -163,7 +196,7 @@ void vApplicationMallocFailedHook( void )
 	to query the size of free heap space that remains (although it does not
 	provide information on how the remaining heap might be fragmented). */
 	taskDISABLE_INTERRUPTS();
-  neorv32_uart0_print("FreeRTOS_FAULT: vApplicationMallocFailedHook (solution: increase 'configTOTAL_HEAP_SIZE' in FreeRTOSConfig.h)\n");
+  neorv32_uart0_puts("FreeRTOS_FAULT: vApplicationMallocFailedHook (solution: increase 'configTOTAL_HEAP_SIZE' in FreeRTOSConfig.h)\n");
 	__asm volatile( "ebreak" );
 	for( ;; );
 }
@@ -194,7 +227,7 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
 	configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
 	function is called if a stack overflow is detected. */
 	taskDISABLE_INTERRUPTS();
-  neorv32_uart0_print("FreeRTOS_FAULT: vApplicationStackOverflowHook\n");
+  neorv32_uart0_puts("FreeRTOS_FAULT: vApplicationStackOverflowHook\n");
 	__asm volatile( "ebreak" );
 	for( ;; );
 }
@@ -220,10 +253,6 @@ void SystemIrqHandler( uint32_t mcause )
   neorv32_uart0_printf("freeRTOS: Unknown interrupt (0x%x)\n", mcause);
 }
 
-
-
-
-
 // ---------- Primitive main in case this demo is not enabled (i.e. RUN_FREERTOS_DEMO is not defined) ----------
 #else
   #warning FREERTOS DEMO HAS NOT BEEN COMPILED! Use >>make USER_FLAGS+=-DRUN_FREERTOS_DEMO clean_all exe<< to compile it.
@@ -231,9 +260,9 @@ void SystemIrqHandler( uint32_t mcause )
 #include <neorv32.h>
 int main() {
 
-  // init UART at default baud rate, no parity bits, ho hw flow control
-  neorv32_uart0_setup(BAUD_RATE, PARITY_NONE, FLOW_CONTROL_NONE);
-  neorv32_uart0_print("ERROR! FreeRTOS has not been compiled. Use >>make USER_FLAGS+=-DRUN_FREERTOS_DEMO clean_all exe<< to compile it.\n");
+  // setup UART at default baud rate, no interrupts
+  neorv32_uart0_setup(BAUD_RATE, 0);
+  neorv32_uart0_puts("ERROR! FreeRTOS has not been compiled. Use >>make USER_FLAGS+=-DRUN_FREERTOS_DEMO clean_all exe<< to compile it.\n");
   return 1;
 }
 #endif

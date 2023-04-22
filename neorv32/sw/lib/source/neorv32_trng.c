@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -35,7 +35,6 @@
 
 /**********************************************************************//**
  * @file neorv32_trng.c
- * @author Stephan Nolting
  * @brief True Random Number Generator (TRNG) HW driver source file.
  *
  * @note These functions should only be used if the TRNG unit was synthesized (IO_TRNG_EN = true).
@@ -52,7 +51,7 @@
  **************************************************************************/
 int neorv32_trng_available(void) {
 
-  if (NEORV32_SYSINFO.SOC & (1 << SYSINFO_SOC_IO_TRNG)) {
+  if (NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_TRNG)) {
     return 1;
   }
   else {
@@ -62,52 +61,83 @@ int neorv32_trng_available(void) {
 
 
 /**********************************************************************//**
- * Enable true random number generator. The TRNG control register bits are listed in #NEORV32_TRNG_CTRL_enum.
+ * Reset and enable TRNG.
+ * @note This will take a while.
  **************************************************************************/
 void neorv32_trng_enable(void) {
 
   int i;
 
-  NEORV32_TRNG.CTRL = 0; // reset
+  NEORV32_TRNG->CTRL = 0; // reset
 
-  for (i=0; i<256; i++) {
+  // wait for all internal components to reset
+  for (i=0; i<512; i++) {
     asm volatile ("nop");
   }
 
-  NEORV32_TRNG.CTRL = 1 << TRNG_CTRL_EN; // activate
+  NEORV32_TRNG->CTRL = 1 << TRNG_CTRL_EN; // activate
 
-  for (i=0; i<256; i++) {
+  // "warm-up"
+  for (i=0; i<512; i++) {
     asm volatile ("nop");
   }
+
+  // flush random data "pool"
+  neorv32_trng_fifo_clear();
 }
 
 
 /**********************************************************************//**
- * Disable true random number generator.
+ * Reset and disable TRNG.
  **************************************************************************/
 void neorv32_trng_disable(void) {
 
-  NEORV32_TRNG.CTRL = 0;
+  NEORV32_TRNG->CTRL = 0;
+}
+
+
+/**********************************************************************//**
+ * Flush TRNG random data FIFO.
+ **************************************************************************/
+void neorv32_trng_fifo_clear(void) {
+
+  NEORV32_TRNG->CTRL |= 1 << TRNG_CTRL_FIFO_CLR; // bit auto clears
 }
 
 
 /**********************************************************************//**
  * Get random data byte from TRNG.
  *
- * @param[in,out] data uint8_t pointer for storing random data byte.
+ * @param[in,out] data uint8_t pointer for storing random data byte. Will be set to zero if no valid data available.
  * @return Data is valid when 0 and invalid otherwise.
  **************************************************************************/
 int neorv32_trng_get(uint8_t *data) {
 
-  uint32_t ct_reg;
+  uint32_t tmp = NEORV32_TRNG->CTRL;
+  *data = (uint8_t)(tmp >> TRNG_CTRL_DATA_LSB);
 
-  ct_reg = NEORV32_TRNG.CTRL;
-
-  if (ct_reg & (1<<TRNG_CTRL_VALID)) { // output data valid?
-    *data = (uint8_t)(ct_reg >> TRNG_CTRL_DATA_LSB);
+  if (tmp & (1<<TRNG_CTRL_VALID)) { // output data valid?
     return 0; // valid data
   }
   else {
     return -1;
+  }
+}
+
+
+/**********************************************************************//**
+ * Check if TRNG is implemented using SIMULATION mode.
+ *
+ * @warning In simulation mode the physical entropy source is replaced by a PRNG (LFSR) with very bad random quality.
+ *
+ * @return Simulation mode active when not zero.
+ **************************************************************************/
+int neorv32_trng_check_sim_mode(void) {
+
+  if (NEORV32_TRNG->CTRL & (1<<TRNG_CTRL_SIM_MODE)) {
+    return -1; // simulation mode (PRNG)
+  }
+  else {
+    return 0; // real TRUE random number generator mode
   }
 }

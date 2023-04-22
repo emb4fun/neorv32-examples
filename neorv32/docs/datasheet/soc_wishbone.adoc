@@ -1,12 +1,12 @@
 <<<
 :sectnums:
-==== Processor-External Memory Interface (WISHBONE) (AXI4-Lite)
+==== Processor-External Memory Interface (WISHBONE)
 
 [cols="<3,<3,<4"]
 [frame="topbot",grid="none"]
 |=======================
 | Hardware source file(s): | neorv32_wishbone.vhd |
-| Software driver file(s): | none             | _implicitly used_
+| Software driver file(s): | none                 | _implicitly used_
 | Top entity port:         | `wb_tag_o`  | request tag output (3-bit)
 |                          | `wb_adr_o`  | address output (32-bit)
 |                          | `wb_dat_i`  | data input (32-bit)
@@ -15,46 +15,52 @@
 |                          | `wb_sel_o`  | byte enable (4-bit)
 |                          | `wb_stb_o`  | strobe (1-bit)
 |                          | `wb_cyc_o`  | valid cycle (1-bit)
-|                          | `wb_lock_o` | exclusive access request (1-bit)
 |                          | `wb_ack_i`  | acknowledge (1-bit)
 |                          | `wb_err_i`  | bus error (1-bit)
 |                          | `fence_o`   | an executed `fence` instruction
 |                          | `fencei_o`  | an executed `fence.i` instruction
-| Configuration generics:  | _MEM_EXT_EN_         | enable external memory interface when _true_
-|                          | _MEM_EXT_TIMEOUT_    | number of clock cycles after which an unacknowledged external bus access will auto-terminate (0 = disabled)
-|                          | _MEM_EXT_PIPE_MODE_  | when _false_ (default): classic/standard Wishbone protocol; when _true_: pipelined Wishbone protocol
-|                          | _MEM_EXT_BIG_ENDIAN_ | byte-order (Endianness) of external memory interface; true=BIG, false=little (default)
-|                          | _MEM_EXT_ASYNC_RX_   | use registered RX path when _false_ (default); use async/direct RX path when _true_
+| Configuration generics:  | `MEM_EXT_EN`         | enable external memory interface when `true`
+|                          | `MEM_EXT_TIMEOUT`    | number of clock cycles after which an unacknowledged external bus access will auto-terminate (0 = disabled)
+|                          | `MEM_EXT_PIPE_MODE`  | when `false` (default): classic/standard Wishbone protocol; when `true`: pipelined Wishbone protocol
+|                          | `MEM_EXT_BIG_ENDIAN` | byte-order (Endianness) of external memory interface; `true`=BIG, `false`=little (default)
+|                          | `MEM_EXT_ASYNC_RX`   | use registered RX path when `false` (default); use async/direct RX path when `true`
+|                          | `MEM_EXT_ASYNC_TX_`  | use registered TX path when `false` (default); use async/direct TX path when `true`
 | CPU interrupts:          | none |
 |=======================
 
 
 The external memory interface provides a Wishbone b4-compatible on-chip bus interface. The bus interface is
-implemented when the _MEM_EXT_EN_ generic is _true_. This interface can be used to attach external memories,
-custom hardware accelerators, additional IO devices or all other kinds of IP blocks.
+implemented if the `MEM_EXT_EN` generic is `true`. This interface can be used to attach external memories,
+custom hardware accelerators, additional IO devices or all other kinds of IP blocks to the processor.
 
-The external interface is _not_ mapped to a _specific_ address space region. Instead, all CPU memory accesses that
+The external interface is not mapped to a specific address space. Instead, all CPU memory accesses that
 do not target a processor-internal module are delegated to the external memory interface. In summary, a CPU load/store
-access is delegated to the external bus interface if...
+access is delegated via the external bus interface if...
 
-. it does not target the internal instruction memory IMEM (if implemented at all)
-. **and** it does not target the internal data memory DMEM (if implemented at all)
-. **and** it does not target the internal bootloader ROM or any of the IO devices - regardless if one or more of these components are
-actually implemented or not.
+* the access does not target the internal instruction memory IMEM (if implemented at all)
+* **and** the access does not target the internal data memory DMEM (if implemented at all)
+* **and** the access does not target the internal bootloader ROM or any of the internal modules - regardless
+if one or more of these components are actually implemented or not.
 
+.Address Space Layout
 [TIP]
 See section <<_address_space>> for more information.
+
+.Execute-in-Place Module
+[NOTE]
+If the Execute In Place module (XIP) is implemented, accesses targeting the XIP memory-mapped-region will not be forwarded to the
+external memory interface. See section <<_execute_in_place_module_xip>> for more information.
 
 
 **Wishbone Bus Protocol**
 
-The external memory interface either uses the **standard** ("classic") Wishbone transaction protocol (default) or
-**pipelined** Wishbone transaction protocol. The transaction protocol is configured via the _MEM_EXT_PIPE_MODE_ generic:
+The external memory interface either uses the **standard** (also called "classic") Wishbone protocol (default) or
+**pipelined** Wishbone protocol. The protocol to be used is configured via the `MEM_EXT_PIPE_MODE` generic:
 
-When _MEM_EXT_PIPE_MODE_ is _false_, all bus control signals including _STB_ are active and remain stable until the
-transfer is acknowledged/terminated. If _MEM_EXT_PIPE_MODE_ is _true_, all bus control except _STB_ are active
-and remain until the transfer is acknowledged/terminated. In this case, _STB_ is asserted only during the very
-first bus clock cycle.
+* If `MEM_EXT_PIPE_MODE` is `false`, all bus control signals including `wb_stb_o` are active and remain stable until the
+transfer is acknowledged/terminated.
+* If `MEM_EXT_PIPE_MODE` is `true`, all bus control except `wb_stb_o` are active and remain until the transfer is
+acknowledged/terminated. In this case, `wb_stb_o` is asserted only during the very first bus clock cycle.
 
 .Exemplary Wishbone bus accesses using "classic" and "pipelined" protocol
 [cols="^2,^2"]
@@ -65,100 +71,63 @@ a| image::wishbone_pipelined_write.png[700,300]
 | **Classic** Wishbone read access | **Pipelined** Wishbone write access
 |=======================
 
-
+.Wishbone Specs.
 [TIP]
 A detailed description of the implemented Wishbone bus protocol and the according interface signals
 can be found in the data sheet "Wishbone B4 - WISHBONE System-on-Chip (SoC) Interconnection
-Architecture for Portable IP Cores". A copy of this document can be found in the docs folder of this
+Architecture for Portable IP Cores". A copy of this document can be found in the `docs` folder of this
 project.
 
 
 **Bus Access**
 
-The NEORV32 Wishbone gateway does not support burst transfer yet, so there is always just one transfer in progress.
+The NEORV32 Wishbone gateway does not support burst transfer yet, so there is always just a single transfer "in fly".
 Hence, the Wishbone `STALL` signal is not implemented. An accessed Wishbone device does not have to respond immediately to a bus
-request by sending an ACK. instead, there is a _time window_ where the device has to acknowledge the transfer. This time window
-id configured by the _MEM_EXT_TIMEOUT_ top generic that defines the maximum time (in clock cycles) a bus access can be pending
-before it is automatically terminated. If _MEM_EXT_TIMEOUT_ is set to zero, the timeout disabled an a bus access can take an
-arbitrary number of cycles to complete.
+request by sending an ACK. Instead, there is a _time window_ where the device has to acknowledge the transfer. This time window
+s configured by the `MEM_EXT_TIMEOUT` generic that defines the maximum time (in clock cycles) a bus access can be pending
+before it is automatically terminated with an error condition. If `MEM_EXT_TIMEOUT` is set to zero, the timeout is disabled
+and a bus access can take an arbitrary number of cycles to complete (this is not recommended!).
 
-When _MEM_EXT_TIMEOUT_ is greater than zero, the Wishbone gateway starts an internal countdown whenever the CPU
-accesses a memory address via the external memory interface. If the accessed memory / device does not acknowledge (via `wb_ack_i`)
-or terminate (via `wb_err_i`) the transfer within _MEM_EXT_TIMEOUT_ clock cycles, the bus access is automatically canceled
+When `MEM_EXT_TIMEOUT` is greater than zero, the Wishbone gateway starts an internal countdown whenever the CPU
+accesses an address via the external memory interface. If the accessed device does not acknowledge (via `wb_ack_i`)
+or terminate (via `wb_err_i`) the transfer within `MEM_EXT_TIMEOUT` clock cycles, the bus access is automatically canceled
 setting `wb_cyc_o` low again and a CPU load/store/instruction fetch bus access fault exception is raised.
-
-[IMPORTANT]
-Setting _MEM_EXT_TIMEOUT_ to zero will permanently stall the CPU if the targeted Wishbone device never responds. Hence,
-_MEM_EXT_TIMEOUT_ should be always set to a value greater than zero. +
- +
-This feature can be used as **safety guard** if the external memory system does not check for "address space holes". That means
-that accessing addresses, which do not belong to a certain memory or device, do not permanently stall the processor due to an
-unacknowledged/unterminated bus access. If the external memory system can guarantee to access **any** bus access
-(even it targets an unimplemented address) the timeout feature should be disabled (_MEM_EXT_TIMEOUT_ = 0).
 
 
 **Wishbone Tag**
 
-The 3-bit wishbone `wb_tag_o` signal provides additional information regarding the access type. This signal
-is compatible to the AXI4 _AxPROT_ signal.
+The 3-bit wishbone `wb_tag_o` signal provides additional information regarding the access type:
 
-* `wb_tag_o(0)` 1: privileged access (CPU is in machine mode); 0: unprivileged access
+* `wb_tag_o(0)` 1: privileged access (CPU is in machine mode); 0: unprivileged access (CPU is not in machine mode)
 * `wb_tag_o(1)` always zero (indicating "secure access")
 * `wb_tag_o(2)` 1: instruction fetch access, 0: data access
-
-
-**Exclusive / Atomic Bus Access**
-
-If the atomic memory access CPU extension (via _CPU_EXTENSION_RISCV_A_) is enabled, the CPU can
-request an atomic/exclusive bus access via the external memory interface.
-
-The load-reservate instruction (`lr.w`) will set the `wb_lock_o` signal telling the bus interconnect to establish a
-reservation for the current accessed address (start of an exclusive access). This signal will stay asserted until
-another memory access instruction is executed (for example a `sc.w`).
-
-The memory system has to make sure that no other entity can access the reservated address until `wb_lock_o`
-is released again. If this attempt fails, the memory system has to assert `wb_err_i` in order to indicate that the
-reservation was broken.
-
-[TIP]
-See section <<_bus_interface>> for the CPU bus interface protocol.
 
 
 **Endianness**
 
 The NEORV32 CPU and the Processor setup are *little-endian* architectures. To allow direct connection
-to a big-endian memory system the external bus interface provides an _Endianness configuration_. The
-Endianness (of the external memory interface) can be configured via the _MEM_EXT_BIG_ENDIAN_ generic.
-By default, the external memory interface uses little-endian byte-order (like the rest of the processor / CPU).
+to a big-endian memory system the external bus interface provides an Endianness configuration. The
+Endianness of the external memory interface can be configured via the `MEM_EXT_BIG_ENDIAN` generic.
+By default, the external memory interface uses little-endian byte-order.
 
 Application software can check the Endianness configuration of the external bus interface via the
 SYSINFO module (see section <<_system_configuration_information_memory_sysinfo>> for more information).
 
 
-**Gateway Latency**
+**Access Latency**
 
-By default, the Wishbone gateway introduces two additional latency cycles: processor-outgoing ("TX") and
-processor-incoming ("RX") signals are fully registered. Thus, any access from the CPU to a processor-external devices
-via Wishbone requires 2 additional clock cycles (at least; depending on device's latency).
+By default, the Wishbone gateway introduces two additional latency cycles: processor-outgoing (`*_o`) and
+processor-incoming (`*_i`) signals are fully registered. Thus, any access from the CPU to a processor-external devices
+via Wishbone requires 2 additional clock cycles. This can ease timing closure when using large (combinatorial) Wishbone
+interconnection networks.
 
-If the attached Wishbone network / peripheral already provides output registers or if the Wishbone network is not relevant
-for timing closure, the default buffering of incoming ("RX") data within the gateway can be disabled by implementing an
-"asynchronous" RX path. The configuration is done via the _MEM_EXT_ASYNC_RX_ generic.
+Optionally, the latency of the Wishbone gateway can be reduced by removing the input and output register stages.
+Enabling the `MEM_EXT_ASYNC_RX` option will remove the input register stage; enabling `MEM_EXT_ASYNC_TX` option will
+remove the output register stages. Each enabled option reduces access latency by 1 cycle.
 
-
-**AXI4-Lite Connectivity**
-
-The AXI4-Lite wrapper (`rtl/system_integration/neorv32_SystemTop_axi4lite.vhd`) provides a Wishbone-to-
-AXI4-Lite bridge, compatible with Xilinx Vivado (IP packager and block design editor). All entity signals of
-this wrapper are of type _std_logic_ or _std_logic_vector_, respectively.
-
-The AXI Interface has been verified using Xilinx Vivado IP Packager and Block Designer. The AXI
-interface port signals are automatically detected when packaging the core.
-
-.Example AXI SoC using Xilinx Vivado
-image::neorv32_axi_soc.png[]
-
-[WARNING]
-Using the auto-termination timeout feature (_MEM_EXT_TIMEOUT_ greater than zero) is **not AXI4 compliant** as
-the AXI protocol does not support canceling of bus transactions. Therefore, the NEORV32 top wrapper with AXI4-Lite interface
-(`rtl/system_integration/neorv32_SystemTop_axi4lite`) configures _MEM_EXT_TIMEOUT_ = 0 by default.
+.Output Gating
+[NOTE]
+All outgoing Wishbone signals use a "gating mechanism" so they only change if there is a actual Wishbone transaction being in
+progress. This can reduce dynamic switching activity in the external bus system and also simplifies simulation-based
+inspection of the Wishbone transactions. Note that this output gating is only available if the output register buffer is not
+disabled (`MEM_EXT_ASYNC_TX` = `false`).

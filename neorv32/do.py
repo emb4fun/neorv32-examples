@@ -27,38 +27,9 @@ def task_BuildAndInstallSoftwareFrameworkTests():
             # Compile and install test application
             # Redirect UART0 TX to text.io simulation output via <UART0_SIM_MODE> user flag
             "echo 'Compiling and installing CPU (/Processor) test application'",
-            "make -C sw/example/processor_check clean_all USER_FLAGS+=-DRUN_CHECK USER_FLAGS+=-DUART0_SIM_MODE USER_FLAGS+=-DUART1_SIM_MODE MARCH=rv32imac info all",
+            "make -C sw/example/processor_check clean_all USER_FLAGS+=-DRUN_CHECK USER_FLAGS+=-DUART0_SIM_MODE USER_FLAGS+=-DUART1_SIM_MODE USER_FLAGS+=-flto MARCH=rv32imc info all",
         ],
         "doc": "Build all sw/example/*; install bootloader and processor check",
-    }
-
-
-def task_RunRISCVArchitectureTests():
-    return {
-        "actions": [CmdAction(
-            "./run_riscv_arch_test.sh {suite}",
-            cwd=ROOT / "sim"
-        )],
-        "doc": "Run RISC-V Architecture Tests",
-        "params": [
-            {
-                "name": "suite",
-                "short": "s",
-                "long": "suite",
-                "default": "M",
-                "choices": ((item, "") for item in [
-                    "I",
-                    "C",
-                    "M",
-                    "privilege",
-                    "Zifencei",
-                    "rv32e_C",
-                    "rv32e_E",
-                    "rv32e_M"
-                ]),
-                "help": "Test suite to be executed",
-            }
-        ],
     }
 
 

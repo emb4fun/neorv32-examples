@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -36,7 +36,7 @@
 /**********************************************************************//**
  * @file game_of_life/main.c
  * @author Stephan Nolting
- * @brief Simple blinking LED demo program using the lowest 8 bits of the GPIO.output port.
+ * @brief Conway's game of life in a UART terminal.
  **************************************************************************/
 
 #include <neorv32.h>
@@ -97,8 +97,8 @@ int main(void) {
   neorv32_rte_setup();
 
 
-  // init UART at default baud rate, no parity bits, ho hw flow control
-  neorv32_uart0_setup(BAUD_RATE, PARITY_NONE, FLOW_CONTROL_NONE);
+  // setup UART at default baud rate, no interrupts
+  neorv32_uart0_setup(BAUD_RATE, 0);
 
   // check available hardware extensions and compare with compiler flags
   neorv32_rte_check_isa(0); // silent = 0 -> show message if isa mismatch
@@ -136,6 +136,7 @@ int main(void) {
     while (neorv32_uart0_char_received() == 0) {
       xorshift32();
     }
+    neorv32_uart0_char_received_get(); // discard received char
 
 
     // initialize universe using random data
@@ -143,9 +144,7 @@ int main(void) {
       for (y=0; y<NUM_CELLS_Y; y++) {
         if (trng_available) {
           while (1) {
-            int err = neorv32_trng_get(&trng_data);
-            if (err) {
-              neorv32_uart0_printf("TRNG error (%i)! Restarting TRNG...\n", err);
+            if (neorv32_trng_get(&trng_data)) {
               continue;
             }
             else {
@@ -165,6 +164,7 @@ int main(void) {
 
       // user abort?
       if (neorv32_uart0_char_received()) {
+        neorv32_uart0_char_received_get(); // discard received char
         neorv32_uart0_printf("\nRestart (y/n)?");
         if (neorv32_uart0_getc() == 'y') {
           break;

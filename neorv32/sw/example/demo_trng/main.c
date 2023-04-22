@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -53,6 +53,8 @@
 
 // prototypes
 void print_random_data(void);
+void repetition_count_test(void);
+void adaptive_proportion_test(void);
 void generate_histogram(void);
 
 
@@ -74,9 +76,8 @@ int main(void) {
   // this is not required, but keeps us safe
   neorv32_rte_setup();
 
-
-  // init UART at default baud rate, no parity bits, ho hw flow control
-  neorv32_uart0_setup(BAUD_RATE, PARITY_NONE, FLOW_CONTROL_NONE);
+  // setup UART at default baud rate, no interrupts
+  neorv32_uart0_setup(BAUD_RATE, 0);
 
   // check available hardware extensions and compare with compiler flags
   neorv32_rte_check_isa(0); // silent = 0 -> show message if isa mismatch
@@ -86,8 +87,14 @@ int main(void) {
 
   // check if TRNG unit is implemented at all
   if (neorv32_trng_available() == 0) {
-    neorv32_uart0_printf("No TRNG implemented.");
+    neorv32_uart0_printf("No TRNG implemented.\n");
     return 1;
+  }
+
+  // check if TRNG is using simulation mode
+  if (neorv32_trng_check_sim_mode() != 0) {
+    neorv32_uart0_printf("WARNING! TRNG uses simulation-only mode implementing a pseudo-RNG (LFSR)\n");
+    neorv32_uart0_printf("         instead of the physical entropy sources!\n");
   }
 
   // enable TRNG
@@ -99,7 +106,9 @@ int main(void) {
     // main menu
     neorv32_uart0_printf("\nCommands:\n"
                          " n: Print 8-bit random numbers (abort by pressing any key)\n"
-                         " h: Generate histogram and analyze data\n");
+                         " h: Generate histogram and analyze data\n"
+                         " 1: Run repetition count test (NIST SP 800-90B)\n"
+                         " 2: Run adaptive proportion test (NIST SP 800-90B)\n");
 
     neorv32_uart0_printf("CMD:> ");
     char cmd = neorv32_uart0_getc();
@@ -111,6 +120,12 @@ int main(void) {
     }
     else if (cmd == 'h') {
       generate_histogram();
+    }
+    else if (cmd == '1') {
+      repetition_count_test();
+    }
+    else if (cmd == '2') {
+      adaptive_proportion_test();
     }
     else {
       neorv32_uart0_printf("Invalid command.\n");
@@ -127,22 +142,113 @@ int main(void) {
 void print_random_data(void) {
 
   uint32_t num_samples = 0;
-  int err = 0;
   uint8_t trng_data;
 
   while(1) {
-    err = neorv32_trng_get(&trng_data);
-    if (err) {
-      neorv32_uart0_printf("\nTRNG error!\n");
-      break;
+    if (neorv32_trng_get(&trng_data)) {
+      continue;
     }
     neorv32_uart0_printf("%u ", (uint32_t)(trng_data));
     num_samples++;
     if (neorv32_uart0_char_received()) { // abort when key pressed
+      neorv32_uart0_char_received_get(); // discard received char
       break;
     }
   }
   neorv32_uart0_printf("\nPrinted samples: %u\n", num_samples);
+}
+
+
+/**********************************************************************//**
+ * Run repetition count test (NIST SP 800-90B)
+ **************************************************************************/
+void repetition_count_test(void) {
+
+  int fail = 0;
+  uint8_t a, x;
+  int b = 0;
+  const int c = 10; // cutoff value
+
+  neorv32_uart0_printf("\nRunning test... Press any key to stop.\n");
+  neorv32_uart0_printf("Cut-off value = %u\n", c);
+
+  while (neorv32_trng_get(&a));
+  b = 1;
+  while (1) {
+    while (neorv32_trng_get(&x));
+
+    if (x == a) {
+      b++;
+      if (b >= c) {
+        fail = 1;
+      }
+    }
+    else {
+      a = x;
+      b = 1;
+    }
+
+    if (fail) {
+      break;
+    }
+    if (neorv32_uart0_char_received()) { // abort when key pressed
+      neorv32_uart0_char_received_get(); // discard received char
+      break;
+    }
+  }
+
+  if (fail) {
+    neorv32_uart0_printf("Test failed!\n");
+  }
+  else {
+    neorv32_uart0_printf("Test ok!\n");
+  }
+}
+
+
+/**********************************************************************//**
+ * Run adaptive proportion test (NIST SP 800-90B)
+ **************************************************************************/
+void adaptive_proportion_test(void) {
+
+  int fail = 0;
+  uint8_t a,x;
+  int b = 0;
+  const int c = 13; // cutoff value
+  const int w = 512; // window size
+  int i;
+
+  neorv32_uart0_printf("\nRunning test... Press any key to stop.\n");
+  neorv32_uart0_printf("Cut-off value = %u, windows size = %u\n", c, w);
+
+  while (1) {
+    while (neorv32_trng_get(&a));
+    b = 1;
+    for (i=1; i<w; i++) {
+      while(neorv32_trng_get(&x));
+      if (a == x) {
+        b++;
+      }
+      if (b >= c) {
+        fail = 1;
+      }
+    }
+
+    if (fail) {
+      break;
+    }
+    if (neorv32_uart0_char_received()) { // abort when key pressed
+      neorv32_uart0_char_received_get(); // discard received char
+      break;
+    }
+  }
+
+  if (fail) {
+    neorv32_uart0_printf("Test failed!\n");
+  }
+  else {
+    neorv32_uart0_printf("Test ok!\n");
+  }
 }
 
 
@@ -160,6 +266,8 @@ void generate_histogram(void) {
   neorv32_uart0_printf("Press any key to start.\n");
 
   while(neorv32_uart0_char_received() == 0);
+  neorv32_uart0_char_received_get(); // discard received char
+
   neorv32_uart0_printf("Sampling... Press any key to stop.\n");
 
   // clear histogram
@@ -186,6 +294,7 @@ void generate_histogram(void) {
     // abort conditions
     if ((neorv32_uart0_char_received()) || // abort when key pressed
         (cnt & 0x80000000UL)) { // to prevent overflow
+      neorv32_uart0_char_received_get(); // discard received char
       break;
     }
   }

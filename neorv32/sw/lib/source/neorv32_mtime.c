@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2022, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -35,7 +35,6 @@
 
 /**********************************************************************//**
  * @file neorv32_mtime.c
- * @author Stephan Nolting
  * @brief Machine System Timer (MTIME) HW driver source file.
  *
  * @note These functions should only be used if the MTIME unit was synthesized (IO_MTIME_EN = true).
@@ -52,7 +51,7 @@
  **************************************************************************/
 int neorv32_mtime_available(void) {
 
-  if (NEORV32_SYSINFO.SOC & (1 << SYSINFO_SOC_IO_MTIME)) {
+  if (NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_MTIME)) {
     return 1;
   }
   else {
@@ -72,15 +71,16 @@ void neorv32_mtime_set_time(uint64_t time) {
 
   union {
     uint64_t uint64;
-    uint32_t uint32[sizeof(uint64_t)/2];
+    uint32_t uint32[sizeof(uint64_t)/sizeof(uint32_t)];
   } cycles;
 
   cycles.uint64 = time;
 
-  NEORV32_MTIME.TIME_LO = 0;
-  NEORV32_MTIME.TIME_HI = cycles.uint32[1];
-  NEORV32_MTIME.TIME_LO = cycles.uint32[0];
+  NEORV32_MTIME->TIME_LO = 0;
+  NEORV32_MTIME->TIME_HI = cycles.uint32[1];
+  NEORV32_MTIME->TIME_LO = cycles.uint32[0];
 
+  asm volatile("nop"); // delay due to write buffer
 }
 
 
@@ -95,14 +95,14 @@ uint64_t neorv32_mtime_get_time(void) {
 
   union {
     uint64_t uint64;
-    uint32_t uint32[sizeof(uint64_t)/2];
+    uint32_t uint32[sizeof(uint64_t)/sizeof(uint32_t)];
   } cycles;
 
   uint32_t tmp1, tmp2, tmp3;
   while(1) {
-    tmp1 = NEORV32_MTIME.TIME_HI;
-    tmp2 = NEORV32_MTIME.TIME_LO;
-    tmp3 = NEORV32_MTIME.TIME_HI;
+    tmp1 = NEORV32_MTIME->TIME_HI;
+    tmp2 = NEORV32_MTIME->TIME_LO;
+    tmp3 = NEORV32_MTIME->TIME_HI;
     if (tmp1 == tmp3) {
       break;
     }
@@ -127,14 +127,16 @@ void neorv32_mtime_set_timecmp(uint64_t timecmp) {
 
   union {
     uint64_t uint64;
-    uint32_t uint32[sizeof(uint64_t)/2];
+    uint32_t uint32[sizeof(uint64_t)/sizeof(uint32_t)];
   } cycles;
 
   cycles.uint64 = timecmp;
 
-  NEORV32_MTIME.TIMECMP_LO = -1; // prevent MTIMECMP from temporarily becoming smaller than the lesser of the old and new values
-  NEORV32_MTIME.TIMECMP_HI = cycles.uint32[1];
-  NEORV32_MTIME.TIMECMP_LO = cycles.uint32[0];
+  NEORV32_MTIME->TIMECMP_LO = -1; // prevent MTIMECMP from temporarily becoming smaller than the lesser of the old and new values
+  NEORV32_MTIME->TIMECMP_HI = cycles.uint32[1];
+  NEORV32_MTIME->TIMECMP_LO = cycles.uint32[0];
+
+  asm volatile("nop"); // delay due to write buffer
 }
 
 
@@ -147,11 +149,11 @@ uint64_t neorv32_mtime_get_timecmp(void) {
 
   union {
     uint64_t uint64;
-    uint32_t uint32[sizeof(uint64_t)/2];
+    uint32_t uint32[sizeof(uint64_t)/sizeof(uint32_t)];
   } cycles;
 
-  cycles.uint32[0] = NEORV32_MTIME.TIMECMP_LO;
-  cycles.uint32[1] = NEORV32_MTIME.TIMECMP_HI;
+  cycles.uint32[0] = NEORV32_MTIME->TIMECMP_LO;
+  cycles.uint32[1] = NEORV32_MTIME->TIMECMP_HI;
 
   return cycles.uint64;
 }

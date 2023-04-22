@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2022, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -35,7 +35,6 @@
 
 /**********************************************************************//**
  * @file neorv32_cfs.c
- * @author Stephan Nolting
  * @brief Custom Functions Subsystem (CFS) HW driver source file.
  *
  * @warning There are no "real" CFS driver functions available here, because these functions are defined by the actual hardware.
@@ -49,13 +48,13 @@
 
 
 /**********************************************************************//**
- * Check if custom functions unit 0 was synthesized.
+ * Check if custom functions subsystem was synthesized.
  *
  * @return 0 if CFS was not synthesized, 1 if CFS is available.
  **************************************************************************/
 int neorv32_cfs_available(void) {
 
-  if (NEORV32_SYSINFO.SOC & (1 << SYSINFO_SOC_IO_CFS)) {
+  if (NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_CFS)) {
     return 1;
   }
   else {

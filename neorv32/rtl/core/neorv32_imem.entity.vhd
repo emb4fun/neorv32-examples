@@ -1,12 +1,9 @@
 -- #################################################################################################
--- # << NEORV32 - Processor-internal instruction memory (IMEM) >>                                  #
--- # ********************************************************************************************* #
--- # This memory optionally includes the in-place executable image of the application. See the     #
--- # processor's documentary to get more information.                                              #
+-- # << NEORV32 - Processor-Internal Instruction Memory (IMEM) - Entity-Only >>                    #
 -- # ********************************************************************************************* #
 -- # BSD 3-Clause License                                                                          #
 -- #                                                                                               #
--- # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+-- # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 -- #                                                                                               #
 -- # Redistribution and use in source and binary forms, with or without modification, are          #
 -- # permitted provided that the following conditions are met:                                     #
@@ -53,6 +50,7 @@ entity neorv32_imem is
     addr_i : in  std_ulogic_vector(31 downto 0); -- address
     data_i : in  std_ulogic_vector(31 downto 0); -- data in
     data_o : out std_ulogic_vector(31 downto 0); -- data out
-    ack_o  : out std_ulogic  -- transfer acknowledge
+    ack_o  : out std_ulogic; -- transfer acknowledge
+    err_o  : out std_ulogic  -- transfer error
   );
 end neorv32_imem;

@@ -83,7 +83,7 @@ static uint8_t PrintfBuffer[PRINTF_BUFFER_SIZE];
 /*************************************************************************/
 void term_Start (void)
 {
-   neorv32_uart0_setup(BAUD_RATE, PARITY_NONE, FLOW_CONTROL_NONE);
+   neorv32_uart_setup(NEORV32_UART0, BAUD_RATE, 0);
 
 } /* term_Start */
 
@@ -108,7 +108,7 @@ int term_printf (const char *fmt, ...)
   
    for (int i = 0; i < n; i++)
    {
-      neorv32_uart0_putc(PrintfBuffer[i]);
+      neorv32_uart_putc(NEORV32_UART0, PrintfBuffer[i]);
    }         
   
    return(n);
@@ -125,9 +125,9 @@ int term_printf (const char *fmt, ...)
 /*************************************************************************/
 void term_puts (char *string)
 {
-   neorv32_uart0_print(string);
-   neorv32_uart0_putc('\r');
-   neorv32_uart0_putc('\n');
+   neorv32_uart_printf(NEORV32_UART0, string);
+   neorv32_uart_putc(NEORV32_UART0, '\r');
+   neorv32_uart_putc(NEORV32_UART0, '\n');
       
 } /* term_puts */
 
@@ -142,7 +142,7 @@ void term_puts (char *string)
 /*************************************************************************/
 int term_putchar (int ch)
 {
-   neorv32_uart0_putc(ch);   
+   neorv32_uart_putc(NEORV32_UART0, ch);   
       
    return(ch);
 } /* term_putchar */

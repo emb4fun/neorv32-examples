@@ -13,6 +13,9 @@ __pycache__
 *.hex
 *_image.vhd
 
+# GDB logs
+*.gdb_history
+
 # keep default VHDL memory images
 !rtl/core/*_image.vhd
 
@@ -33,11 +36,3 @@ sw/image_gen/image_gen.exe
 # compiled ghdl stuff
 *.cf
 *.o
-
-# example bitstreams
-/setups/examples/*.bit
-/setups/examples/*.svf
-
-# riscv-arch-test
-
-/sim/work/

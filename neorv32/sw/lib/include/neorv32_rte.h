@@ -3,7 +3,7 @@
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
-// # Copyright (c) 2021, Stephan Nolting. All rights reserved.                                     #
+// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
 // #                                                                                               #
 // # Redistribution and use in source and binary forms, with or without modification, are          #
 // # permitted provided that the following conditions are met:                                     #
@@ -35,12 +35,18 @@
 
 /**********************************************************************//**
  * @file neorv32_rte.h
- * @author Stephan Nolting
  * @brief NEORV32 Runtime Environment.
  **************************************************************************/
 
 #ifndef neorv32_rte_h
 #define neorv32_rte_h
+
+
+/**********************************************************************//**
+ * NEORV32 runtime environment: Number of available traps.
+ **************************************************************************/
+#define NEORV32_RTE_NUM_TRAPS 29
+
 
 /**********************************************************************//**
  * NEORV32 runtime environment trap IDs.
@@ -79,15 +85,12 @@ enum NEORV32_RTE_TRAP_enum {
 
 
 /**********************************************************************//**
- * NEORV32 runtime environment: Number of available traps.
+ * @name Prototypes
  **************************************************************************/
-#define NEORV32_RTE_NUM_TRAPS 29
-
-
-// prototypes
+/**@{*/
 void neorv32_rte_setup(void);
-int  neorv32_rte_exception_install(uint8_t id, void (*handler)(void));
-int  neorv32_rte_exception_uninstall(uint8_t id);
+int  neorv32_rte_handler_install(int id, void (*handler)(void));
+int  neorv32_rte_handler_uninstall(int id);
 
 void neorv32_rte_print_hw_config(void);
 void neorv32_rte_print_hw_version(void);
@@ -96,6 +99,8 @@ void neorv32_rte_print_logo(void);
 void neorv32_rte_print_license(void);
 
 uint32_t neorv32_rte_get_compiler_isa(void);
-int neorv32_rte_check_isa(int silent);
+int      neorv32_rte_check_isa(int silent);
+/**@}*/
+
 
 #endif // neorv32_rte_h
