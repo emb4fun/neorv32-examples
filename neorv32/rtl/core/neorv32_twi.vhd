@@ -46,33 +46,21 @@ use neorv32.neorv32_package.all;
 
 entity neorv32_twi is
   port (
-    -- host access --
     clk_i       : in  std_ulogic; -- global clock line
     rstn_i      : in  std_ulogic; -- global reset line, low-active, async
-    addr_i      : in  std_ulogic_vector(31 downto 0); -- address
-    rden_i      : in  std_ulogic; -- read enable
-    wren_i      : in  std_ulogic; -- write enable
-    data_i      : in  std_ulogic_vector(31 downto 0); -- data in
-    data_o      : out std_ulogic_vector(31 downto 0); -- data out
-    ack_o       : out std_ulogic; -- transfer acknowledge
-    -- clock generator --
+    bus_req_i   : in  bus_req_t;  -- bus request
+    bus_rsp_o   : out bus_rsp_t;  -- bus response
     clkgen_en_o : out std_ulogic; -- enable clock generator
-    clkgen_i    : in  std_ulogic_vector(07 downto 0);
-    -- com lines (require external tri-state drivers) --
+    clkgen_i    : in  std_ulogic_vector(7 downto 0);
     twi_sda_i   : in  std_ulogic; -- serial data line input
     twi_sda_o   : out std_ulogic; -- serial data line output
     twi_scl_i   : in  std_ulogic; -- serial clock line input
     twi_scl_o   : out std_ulogic; -- serial clock line output
-    -- interrupt --
     irq_o       : out std_ulogic -- transfer done IRQ
   );
 end neorv32_twi;
 
 architecture neorv32_twi_rtl of neorv32_twi is
-
-  -- IO space: module base address --
-  constant hi_abb_c : natural := index_size_f(io_size_c)-1; -- high address boundary bit
-  constant lo_abb_c : natural := index_size_f(twi_size_c); -- low address boundary bit
 
   -- control register --
   constant ctrl_en_c      : natural :=  0; -- r/w: TWI enable
@@ -92,12 +80,6 @@ architecture neorv32_twi_rtl of neorv32_twi is
   constant ctrl_ack_c     : natural := 30; -- r/-: Set if ACK received
   constant ctrl_busy_c    : natural := 31; -- r/-: Set if TWI unit is busy
 
-  -- access control --
-  signal acc_en : std_ulogic; -- module access enable
-  signal addr   : std_ulogic_vector(31 downto 0); -- access address
-  signal wren   : std_ulogic; -- word write enable
-  signal rden   : std_ulogic; -- read enable
-
   -- control register --
   type ctrl_t is record
     enable : std_ulogic;
@@ -107,6 +89,11 @@ architecture neorv32_twi_rtl of neorv32_twi is
     cdiv   : std_ulogic_vector(3 downto 0);
   end record;
   signal ctrl : ctrl_t;
+
+  -- operation triggers --
+  signal trig_start : std_ulogic;
+  signal trig_stop  : std_ulogic;
+  signal trig_data  : std_ulogic;
 
   -- clock generator --
   type clk_gen_t is record
@@ -146,11 +133,6 @@ begin
 
   -- Host Access ----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  -- access control --
-  acc_en <= '1' when (addr_i(hi_abb_c downto lo_abb_c) = twi_base_c(hi_abb_c downto lo_abb_c)) else '0';
-  addr   <= twi_base_c(31 downto lo_abb_c) & addr_i(lo_abb_c-1 downto 2) & "00"; -- word aligned
-  wren   <= acc_en and wren_i;
-  rden   <= acc_en and rden_i;
 
   -- write access --
   write_access: process(rstn_i, clk_i)
@@ -161,14 +143,26 @@ begin
       ctrl.csen   <= '0';
       ctrl.prsc   <= (others => '0');
       ctrl.cdiv   <= (others => '0');
+      trig_start  <= '0';
+      trig_stop   <= '0';
+      trig_data   <= '0';
     elsif rising_edge(clk_i) then
-      if (wren = '1') then
-        if (addr = twi_ctrl_addr_c) then
-          ctrl.enable <= data_i(ctrl_en_c);
-          ctrl.mack   <= data_i(ctrl_mack_c);
-          ctrl.csen   <= data_i(ctrl_csen_c);
-          ctrl.prsc   <= data_i(ctrl_prsc2_c downto ctrl_prsc0_c);
-          ctrl.cdiv   <= data_i(ctrl_cdiv3_c downto ctrl_cdiv0_c);
+      -- defaults --
+      trig_start <= '0';
+      trig_stop  <= '0';
+      trig_data  <= '0';
+      -- bus access --
+      if (bus_req_i.we = '1') then
+        if (bus_req_i.addr(2) = '0') then -- control register
+          ctrl.enable <= bus_req_i.data(ctrl_en_c);
+          ctrl.mack   <= bus_req_i.data(ctrl_mack_c);
+          ctrl.csen   <= bus_req_i.data(ctrl_csen_c);
+          ctrl.prsc   <= bus_req_i.data(ctrl_prsc2_c downto ctrl_prsc0_c);
+          ctrl.cdiv   <= bus_req_i.data(ctrl_cdiv3_c downto ctrl_cdiv0_c);
+          trig_start  <= bus_req_i.data(ctrl_start_c); -- issue START condition
+          trig_stop   <= bus_req_i.data(ctrl_stop_c); -- issue STOP condition
+        else -- data register
+          trig_data <= '1'; -- start data transmission
         end if;
       end if;
     end if;
@@ -178,25 +172,28 @@ begin
   read_access: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      ack_o  <= rden or wren; -- bus handshake
-      data_o <= (others => '0');
-      if (rden = '1') then
-        if (addr = twi_ctrl_addr_c) then
-          data_o(ctrl_en_c)                        <= ctrl.enable;
-          data_o(ctrl_mack_c)                      <= ctrl.mack;
-          data_o(ctrl_csen_c)                      <= ctrl.csen;
-          data_o(ctrl_prsc2_c downto ctrl_prsc0_c) <= ctrl.prsc;
-          data_o(ctrl_cdiv3_c downto ctrl_cdiv0_c) <= ctrl.cdiv;
+      bus_rsp_o.ack  <= bus_req_i.re or bus_req_i.we; -- bus handshake
+      bus_rsp_o.data <= (others => '0');
+      if (bus_req_i.re = '1') then
+        if (bus_req_i.addr(2) = '0') then -- control register
+          bus_rsp_o.data(ctrl_en_c)                        <= ctrl.enable;
+          bus_rsp_o.data(ctrl_mack_c)                      <= ctrl.mack;
+          bus_rsp_o.data(ctrl_csen_c)                      <= ctrl.csen;
+          bus_rsp_o.data(ctrl_prsc2_c downto ctrl_prsc0_c) <= ctrl.prsc;
+          bus_rsp_o.data(ctrl_cdiv3_c downto ctrl_cdiv0_c) <= ctrl.cdiv;
           --
-          data_o(ctrl_claimed_c) <= arbiter.claimed;
-          data_o(ctrl_ack_c)     <= not arbiter.rtx_sreg(0);
-          data_o(ctrl_busy_c)    <= arbiter.busy;
-        else -- twi_rtx_addr_c =>
-          data_o(7 downto 0) <= arbiter.rtx_sreg(8 downto 1);
+          bus_rsp_o.data(ctrl_claimed_c) <= arbiter.claimed;
+          bus_rsp_o.data(ctrl_ack_c)     <= not arbiter.rtx_sreg(0);
+          bus_rsp_o.data(ctrl_busy_c)    <= arbiter.busy;
+        else -- data register
+          bus_rsp_o.data(7 downto 0) <= arbiter.rtx_sreg(8 downto 1);
         end if;
       end if;
     end if;
   end process read_access;
+
+  -- no access error possible --
+  bus_rsp_o.err <= '0';
 
 
   -- Clock Generation -----------------------------------------------------------------------
@@ -230,7 +227,7 @@ begin
     if rising_edge(clk_i) then
       clk_gen.phase_gen_ff <= clk_gen.phase_gen;
       if (arbiter.state(2) = '0') or (arbiter.state(1 downto 0) = "00") then -- offline or idle
-        clk_gen.phase_gen <= "0001"; -- make sure to start with a new phase, bit stepping: 0-1-2-3
+        clk_gen.phase_gen <= "0001"; -- make sure to start with a new phase
       else
         if (clk_gen.tick = '1') and (clk_gen.halt = '0') then -- clock tick and no clock stretching detected
           clk_gen.phase_gen <= clk_gen.phase_gen(2 downto 0) & clk_gen.phase_gen(3); -- rotate left
@@ -273,19 +270,16 @@ begin
         when "100" => -- IDLE: waiting for operation requests
         -- ------------------------------------------------------------
           arbiter.bitcnt <= (others => '0');
-          if (wren = '1') then
-            if (addr = twi_ctrl_addr_c) then
-              if (data_i(ctrl_start_c) = '1') then -- issue START condition
-                arbiter.state_nxt <= "01";
-              elsif (data_i(ctrl_stop_c) = '1') then  -- issue STOP condition
-                arbiter.state_nxt <= "10";
-              end if;
-            elsif (addr = twi_rtx_addr_c) then -- start a data transmission
-              -- one bit extra for ACK: issued by controller if ctrl_mack_c is set,
-              -- sampled from peripheral if ctrl_mack_c is cleared
-              arbiter.rtx_sreg  <= data_i(7 downto 0) & (not ctrl.mack);
-              arbiter.state_nxt <= "11";
-            end if;
+          if (trig_start = '1') then -- issue START condition
+            arbiter.state_nxt <= "01";
+          elsif (trig_stop = '1') then  -- issue STOP condition
+            arbiter.state_nxt <= "10";
+          elsif (trig_data = '1') then -- start a data transmission
+            -- one bit extra for ACK: issued by controller if ctrl_mack_c is set,
+            -- sampled from peripheral if ctrl_mack_c is cleared
+            -- data_i will stay unchanged for min. 1 cycle after WREN has returned to low again
+            arbiter.rtx_sreg  <= bus_req_i.data(7 downto 0) & (not ctrl.mack);
+            arbiter.state_nxt <= "11";
           end if;
           -- start operation on next TWI clock pulse --
           if (arbiter.state_nxt /= "00") and (clk_gen.tick = '1') then

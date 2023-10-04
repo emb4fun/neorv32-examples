@@ -55,39 +55,21 @@ use neorv32.neorv32_package.all;
 
 entity neorv32_neoled is
   generic (
-    FIFO_DEPTH : natural -- NEOLED FIFO depth, has to be a power of two, min 1
+    FIFO_DEPTH : natural range 1 to 2**15 -- NEOLED FIFO depth, has to be a power of two, min 1
   );
   port (
-    -- host access --
     clk_i       : in  std_ulogic; -- global clock line
-    rstn_i      : in  std_ulogic; -- global reset line, low-active, async
-    addr_i      : in  std_ulogic_vector(31 downto 0); -- address
-    rden_i      : in  std_ulogic; -- read enable
-    wren_i      : in  std_ulogic; -- write enable
-    data_i      : in  std_ulogic_vector(31 downto 0); -- data in
-    data_o      : out std_ulogic_vector(31 downto 0); -- data out
-    ack_o       : out std_ulogic; -- transfer acknowledge
-    -- clock generator --
+    rstn_i      : in  std_ulogic; -- global reset line, low-active
+    bus_req_i   : in  bus_req_t;  -- bus request
+    bus_rsp_o   : out bus_rsp_t;  -- bus response
     clkgen_en_o : out std_ulogic; -- enable clock generator
-    clkgen_i    : in  std_ulogic_vector(07 downto 0);
-    -- interrupt --
+    clkgen_i    : in  std_ulogic_vector(7 downto 0);
     irq_o       : out std_ulogic; -- interrupt request
-    -- NEOLED output --
     neoled_o    : out std_ulogic -- serial async data line
   );
 end neorv32_neoled;
 
 architecture neorv32_neoled_rtl of neorv32_neoled is
-
-  -- IO space: module base address --
-  constant hi_abb_c : natural := index_size_f(io_size_c)-1; -- high address boundary bit
-  constant lo_abb_c : natural := index_size_f(neoled_size_c); -- low address boundary bit
-
-  -- access control --
-  signal acc_en : std_ulogic; -- module access enable
-  signal addr   : std_ulogic_vector(31 downto 0); -- access address
-  signal wren   : std_ulogic; -- word write enable
-  signal rden   : std_ulogic; -- read enable
 
   -- Control register bits --
   constant ctrl_en_c       : natural :=  0; -- r/w: module enable
@@ -176,18 +158,12 @@ begin
 
   -- Sanity Checks --------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  assert not ((is_power_of_two_f(FIFO_DEPTH) = false) or (FIFO_DEPTH < 1) or (FIFO_DEPTH > 32768))
-    report "NEORV32 PROCESSOR CONFIG ERROR! Invalid NEOLED FIFO size configuration (1..32k)." severity error;
+  assert not (is_power_of_two_f(FIFO_DEPTH) = false)
+    report "NEORV32 PROCESSOR CONFIG ERROR! NEOLED FIFO size has to be a power of two." severity error;
 
 
   -- Host Access ----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-
-  -- access control --
-  acc_en <= '1' when (addr_i(hi_abb_c downto lo_abb_c) = neoled_base_c(hi_abb_c downto lo_abb_c)) else '0';
-  addr   <= neoled_base_c(31 downto lo_abb_c) & addr_i(lo_abb_c-1 downto 2) & "00"; -- word aligned
-  wren   <= acc_en and wren_i;
-  rden   <= acc_en and rden_i;
 
   -- write access --
   write_access: process(rstn_i, clk_i)
@@ -202,15 +178,15 @@ begin
       ctrl.t0_high  <= (others => '0');
       ctrl.t1_high  <= (others => '0');
     elsif rising_edge(clk_i) then
-      if (wren = '1') and (addr = neoled_ctrl_addr_c) then
-        ctrl.enable   <= data_i(ctrl_en_c);
-        ctrl.mode     <= data_i(ctrl_mode_c);
-        ctrl.strobe   <= data_i(ctrl_strobe_c);
-        ctrl.clk_prsc <= data_i(ctrl_clksel2_c downto ctrl_clksel0_c);
-        ctrl.irq_conf <= data_i(ctrl_irq_conf_c);
-        ctrl.t_total  <= data_i(ctrl_t_tot_4_c downto ctrl_t_tot_0_c);
-        ctrl.t0_high  <= data_i(ctrl_t_0h_4_c  downto ctrl_t_0h_0_c);
-        ctrl.t1_high  <= data_i(ctrl_t_1h_4_c  downto ctrl_t_1h_0_c);
+      if (bus_req_i.we = '1') and (bus_req_i.addr(2) = '0') then
+        ctrl.enable   <= bus_req_i.data(ctrl_en_c);
+        ctrl.mode     <= bus_req_i.data(ctrl_mode_c);
+        ctrl.strobe   <= bus_req_i.data(ctrl_strobe_c);
+        ctrl.clk_prsc <= bus_req_i.data(ctrl_clksel2_c downto ctrl_clksel0_c);
+        ctrl.irq_conf <= bus_req_i.data(ctrl_irq_conf_c);
+        ctrl.t_total  <= bus_req_i.data(ctrl_t_tot_4_c downto ctrl_t_tot_0_c);
+        ctrl.t0_high  <= bus_req_i.data(ctrl_t_0h_4_c  downto ctrl_t_0h_0_c);
+        ctrl.t1_high  <= bus_req_i.data(ctrl_t_1h_4_c  downto ctrl_t_1h_0_c);
       end if;
     end if;
   end process write_access;
@@ -219,26 +195,29 @@ begin
   read_access: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      ack_o  <= wren or rden; -- access acknowledge
-      data_o <= (others => '0');
-      if (rden = '1') then -- and (addr = neoled_ctrl_addr_c) then
-        data_o(ctrl_en_c)                            <= ctrl.enable;
-        data_o(ctrl_mode_c)                          <= ctrl.mode;
-        data_o(ctrl_strobe_c)                        <= ctrl.strobe;
-        data_o(ctrl_clksel2_c downto ctrl_clksel0_c) <= ctrl.clk_prsc;
-        data_o(ctrl_irq_conf_c)                      <= ctrl.irq_conf or bool_to_ulogic_f(boolean(FIFO_DEPTH = 1)); -- tie to one if FIFO_DEPTH is 1
-        data_o(ctrl_bufs_3_c  downto ctrl_bufs_0_c)  <= std_ulogic_vector(to_unsigned(index_size_f(FIFO_DEPTH), 4));
-        data_o(ctrl_t_tot_4_c downto ctrl_t_tot_0_c) <= ctrl.t_total;
-        data_o(ctrl_t_0h_4_c  downto ctrl_t_0h_0_c)  <= ctrl.t0_high;
-        data_o(ctrl_t_1h_4_c  downto ctrl_t_1h_0_c)  <= ctrl.t1_high;
+      bus_rsp_o.ack  <= bus_req_i.we or bus_req_i.re; -- access acknowledge
+      bus_rsp_o.data <= (others => '0');
+      if (bus_req_i.re = '1') then
+        bus_rsp_o.data(ctrl_en_c)                            <= ctrl.enable;
+        bus_rsp_o.data(ctrl_mode_c)                          <= ctrl.mode;
+        bus_rsp_o.data(ctrl_strobe_c)                        <= ctrl.strobe;
+        bus_rsp_o.data(ctrl_clksel2_c downto ctrl_clksel0_c) <= ctrl.clk_prsc;
+        bus_rsp_o.data(ctrl_irq_conf_c)                      <= ctrl.irq_conf or bool_to_ulogic_f(boolean(FIFO_DEPTH = 1)); -- tie to one if FIFO_DEPTH is 1
+        bus_rsp_o.data(ctrl_bufs_3_c  downto ctrl_bufs_0_c)  <= std_ulogic_vector(to_unsigned(index_size_f(FIFO_DEPTH), 4));
+        bus_rsp_o.data(ctrl_t_tot_4_c downto ctrl_t_tot_0_c) <= ctrl.t_total;
+        bus_rsp_o.data(ctrl_t_0h_4_c  downto ctrl_t_0h_0_c)  <= ctrl.t0_high;
+        bus_rsp_o.data(ctrl_t_1h_4_c  downto ctrl_t_1h_0_c)  <= ctrl.t1_high;
         --
-        data_o(ctrl_tx_empty_c)                      <= not tx_fifo.avail;
-        data_o(ctrl_tx_half_c)                       <= tx_fifo.half;
-        data_o(ctrl_tx_full_c)                       <= not tx_fifo.free;
-        data_o(ctrl_tx_busy_c)                       <= serial.busy;
+        bus_rsp_o.data(ctrl_tx_empty_c)                      <= not tx_fifo.avail;
+        bus_rsp_o.data(ctrl_tx_half_c)                       <= tx_fifo.half;
+        bus_rsp_o.data(ctrl_tx_full_c)                       <= not tx_fifo.free;
+        bus_rsp_o.data(ctrl_tx_busy_c)                       <= serial.busy;
       end if;
     end if;
   end process read_access;
+
+  -- no access error possible --
+  bus_rsp_o.err <= '0';
 
   -- enable external clock generator --
   clkgen_en_o <= ctrl.enable;
@@ -246,7 +225,7 @@ begin
 
   -- TX Buffer (FIFO) -----------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  data_buffer: neorv32_fifo
+  data_buffer: entity neorv32.neorv32_fifo
   generic map (
     FIFO_DEPTH => FIFO_DEPTH, -- number of fifo entries; has to be a power of two; min 1
     FIFO_WIDTH => 32+2,       -- size of data elements in fifo
@@ -270,8 +249,8 @@ begin
   );
 
   tx_fifo.re    <= '1' when (serial.state = "100") else '0';
-  tx_fifo.we    <= '1' when (wren = '1') and (addr = neoled_data_addr_c) else '0';
-  tx_fifo.wdata <= ctrl.strobe & ctrl.mode & data_i;
+  tx_fifo.we    <= '1' when (bus_req_i.we = '1') and (bus_req_i.addr(2) = '1') else '0';
+  tx_fifo.wdata <= ctrl.strobe & ctrl.mode & bus_req_i.data;
   tx_fifo.clear <= not ctrl.enable;
 
   -- IRQ generator --

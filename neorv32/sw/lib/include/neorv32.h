@@ -51,6 +51,7 @@ extern "C" {
 #include <stdint.h>
 #include <inttypes.h>
 #include <limits.h>
+//#include <unistd.h>
 #include <stdlib.h>
 
 
@@ -70,14 +71,7 @@ enum NEORV32_CLOCK_PRSC_enum {
 
 
 /**********************************************************************//**
- * Official NEORV32 RISC-V open-source architecture ID
- * https://github.com/riscv/riscv-isa-manual/blob/master/marchid.md
- **************************************************************************/
-#define NEORV32_ARCHID 19
-
-
-/**********************************************************************//**
- * @name Fast Interrupt Requests (FIRQ) IO device aliases
+ * @name Fast Interrupt Requests (FIRQ) device aliases
  **************************************************************************/
 /**@{*/
 /** @name Watchdog Timer (WDT) */
@@ -144,6 +138,13 @@ enum NEORV32_CLOCK_PRSC_enum {
 #define NEOLED_RTE_ID          RTE_TRAP_FIRQ_9   /**< RTE entry code (#NEORV32_RTE_TRAP_enum) */
 #define NEOLED_TRAP_CODE       TRAP_CODE_FIRQ_9  /**< MCAUSE CSR trap code (#NEORV32_EXCEPTION_CODES_enum) */
 /**@}*/
+/** @name Direct Memory Access Controller (DMA) */
+/**@{*/
+#define DMA_FIRQ_ENABLE        CSR_MIE_FIRQ10E   /**< MIE CSR bit (#NEORV32_CSR_MIE_enum) */
+#define DMA_FIRQ_PENDING       CSR_MIP_FIRQ10P   /**< MIP CSR bit (#NEORV32_CSR_MIP_enum) */
+#define DMA_RTE_ID             RTE_TRAP_FIRQ_10  /**< RTE entry code (#NEORV32_RTE_TRAP_enum) */
+#define DMA_TRAP_CODE          TRAP_CODE_FIRQ_10 /**< MCAUSE CSR trap code (#NEORV32_EXCEPTION_CODES_enum) */
+/**@}*/
 /** @name Serial Data Interface (SDI) */
 /**@{*/
 #define SDI_FIRQ_ENABLE        CSR_MIE_FIRQ11E   /**< MIE CSR bit (#NEORV32_CSR_MIE_enum) */
@@ -165,45 +166,61 @@ enum NEORV32_CLOCK_PRSC_enum {
 #define ONEWIRE_RTE_ID         RTE_TRAP_FIRQ_13  /**< RTE entry code (#NEORV32_RTE_TRAP_enum) */
 #define ONEWIRE_TRAP_CODE      TRAP_CODE_FIRQ_13 /**< MCAUSE CSR trap code (#NEORV32_EXCEPTION_CODES_enum) */
 /**@}*/
+/** @name Stream Link Interface (SLINK) */
+/**@{*/
+#define SLINK_FIRQ_ENABLE      CSR_MIE_FIRQ14E   /**< MIE CSR bit (#NEORV32_CSR_MIE_enum) */
+#define SLINK_FIRQ_PENDING     CSR_MIP_FIRQ14P   /**< MIP CSR bit (#NEORV32_CSR_MIP_enum) */
+#define SLINK_RTE_ID           RTE_TRAP_FIRQ_14  /**< RTE entry code (#NEORV32_RTE_TRAP_enum) */
+#define SLINK_TRAP_CODE        TRAP_CODE_FIRQ_14 /**< MCAUSE CSR trap code (#NEORV32_EXCEPTION_CODES_enum) */
+/**@}*/
+/** @name True-Random Number Generator (TRNG) */
+/**@{*/
+#define TRNG_FIRQ_ENABLE       CSR_MIE_FIRQ15E   /**< MIE CSR bit (#NEORV32_CSR_MIE_enum) */
+#define TRNG_FIRQ_PENDING      CSR_MIP_FIRQ15P   /**< MIP CSR bit (#NEORV32_CSR_MIP_enum) */
+#define TRNG_RTE_ID            RTE_TRAP_FIRQ_15  /**< RTE entry code (#NEORV32_RTE_TRAP_enum) */
+#define TRNG_TRAP_CODE         TRAP_CODE_FIRQ_15 /**< MCAUSE CSR trap code (#NEORV32_EXCEPTION_CODES_enum) */
+/**@}*/
 /**@}*/
 
 
 /**********************************************************************//**
- * @name Address space sections
+ * @name Main Address Space Sections
  **************************************************************************/
 /**@{*/
+/** XIP-mapped memory base address */
+#define XIP_MEM_BASE_ADDRESS    (0xE0000000U)
 /** bootloader memory base address */
-#define BOOTLOADER_BASE_ADDRESS (0xFFFF0000U)
-/** on-chip debugger complex base address */
-#define OCD_BASE_ADDRESS        (0XFFFFF800U)
+#define BOOTLOADER_BASE_ADDRESS (0xFFFFC000U)
 /** peripheral/IO devices memory base address */
-#define IO_BASE_ADDRESS         (0xFFFFFE00U)
+#define IO_BASE_ADDRESS         (0xFFFFE000U)
 /**@}*/
 
 
 /**********************************************************************//**
- * @name Peripheral/IO Devices - IO Address Space - base addresses
+ * @name IO Address Space - Peripheral/IO Devices
  **************************************************************************/
 /**@{*/
-#define NEORV32_SYSINFO_BASE   (0xFFFFFFE0U) /**< System Configuration Information Memory (SYSINFO) */
-#define NEORV32_NEOLED_BASE    (0xFFFFFFD8U) /**< Smart LED Hardware Interface (NEOLED) */
-#define NEORV32_UART1_BASE     (0xFFFFFFD0U) /**< Secondary Universal Asynchronous Receiver and Transmitter (UART1) */
-#define NEORV32_GPIO_BASE      (0xFFFFFFC0U) /**< General Purpose Input/Output Port Unit (GPIO) */
-#define NEORV32_WDT_BASE       (0xFFFFFFBCU) /**< Watchdog Timer (WDT) */
-#define NEORV32_TRNG_BASE      (0xFFFFFFB8U) /**< True Random Number Generator (TRNG) */
-#define NEORV32_TWI_BASE       (0xFFFFFFB0U) /**< Two-Wire Interface Controller (TWI) */
-#define NEORV32_SPI_BASE       (0xFFFFFFA8U) /**< Serial Peripheral Interface Controller (SPI) */
-#define NEORV32_UART0_BASE     (0xFFFFFFA0U) /**< Primary Universal Asynchronous Receiver and Transmitter (UART0) */
-#define NEORV32_MTIME_BASE     (0xFFFFFF90U) /**< Machine System Timer (MTIME) */
-#define NEORV32_XIRQ_BASE      (0xFFFFFF80U) /**< External Interrupt Controller (XIRQ) */
-#define NEORV32_BUSKEEPER_BASE (0xFFFFFF78U) /**< Bus Monitor (BUSKEEPER) */
-#define NEORV32_ONEWIRE_BASE   (0xFFFFFF70U) /**< 1-Wire Interface Controller (ONEWIRE) */
-#define NEORV32_GPTMR_BASE     (0xFFFFFF60U) /**< General Purpose Timer (GPTMR) */
-#define NEORV32_PWM_BASE       (0xFFFFFF50U) /**< Pulse Width Modulation Controller (PWM) */
-#define NEORV32_XIP_BASE       (0xFFFFFF40U) /**< Execute In Place Module (XIP) */
-#define NEORV32_SDI_BASE       (0xFFFFFF00U) /**< Serial Data Interface (SDI) */
-#define NEORV32_CFS_BASE       (0xFFFFFE00U) /**< Custom Functions Subsystem (CFS) */
-#define NEORV32_DM_BASE        (0xFFFFF800U) /**< On-Chip Debugger */
+#define NEORV32_CFS_BASE     (0xFFFFEB00U) /**< Custom Functions Subsystem (CFS) */
+#define NEORV32_SLINK_BASE   (0xFFFFEC00U) /**< Stream Link Interface (SLINK) */
+#define NEORV32_DMA_BASE     (0xFFFFED00U) /**< Direct Memory Access Controller (DMA) */
+#define NEORV32_CRC_BASE     (0xFFFFEE00U) /**< Cyclic Redundancy Check Unit (DMA) */
+#define NEORV32_XIP_BASE     (0xFFFFEF00U) /**< Execute In Place Module (XIP) */
+#define NEORV32_PWM_BASE     (0xFFFFF000U) /**< Pulse Width Modulation Controller (PWM) */
+#define NEORV32_GPTMR_BASE   (0xFFFFF100U) /**< General Purpose Timer (GPTMR) */
+#define NEORV32_ONEWIRE_BASE (0xFFFFF200U) /**< 1-Wire Interface Controller (ONEWIRE) */
+#define NEORV32_XIRQ_BASE    (0xFFFFF300U) /**< External Interrupt Controller (XIRQ) */
+#define NEORV32_MTIME_BASE   (0xFFFFF400U) /**< Machine System Timer (MTIME) */
+#define NEORV32_UART0_BASE   (0xFFFFF500U) /**< Primary Universal Asynchronous Receiver and Transmitter (UART0) */
+#define NEORV32_UART1_BASE   (0xFFFFF600U) /**< Secondary Universal Asynchronous Receiver and Transmitter (UART1) */
+#define NEORV32_SDI_BASE     (0xFFFFF700U) /**< Serial Data Interface (SDI) */
+#define NEORV32_SPI_BASE     (0xFFFFF800U) /**< Serial Peripheral Interface Controller (SPI) */
+#define NEORV32_TWI_BASE     (0xFFFFF900U) /**< Two-Wire Interface Controller (TWI) */
+#define NEORV32_TRNG_BASE    (0xFFFFFA00U) /**< True Random Number Generator (TRNG) */
+#define NEORV32_WDT_BASE     (0xFFFFFB00U) /**< Watchdog Timer (WDT) */
+#define NEORV32_GPIO_BASE    (0xFFFFFC00U) /**< General Purpose Input/Output Port Controller (GPIO) */
+#define NEORV32_NEOLED_BASE  (0xFFFFFD00U) /**< Smart LED Hardware Interface (NEOLED) */
+#define NEORV32_SYSINFO_BASE (0xFFFFFE00U) /**< System Information Memory (SYSINFO) */
+#define NEORV32_DM_BASE      (0xFFFFFF00U) /**< On-Chip Debugger - Debug Module (OCD) */
 /**@}*/
 
 
@@ -215,6 +232,7 @@ enum NEORV32_CLOCK_PRSC_enum {
 
 // cpu core
 #include "neorv32_cpu.h"
+#include "neorv32_cpu_amo.h"
 #include "neorv32_cpu_csr.h"
 #include "neorv32_cpu_cfu.h"
 
@@ -222,9 +240,10 @@ enum NEORV32_CLOCK_PRSC_enum {
 #include "neorv32_rte.h"
 
 // IO/peripheral devices
-#include "neorv32_buskeeper.h"
 #include "neorv32_cfs.h"
+#include "neorv32_crc.h"
 #include "neorv32_dm.h"
+#include "neorv32_dma.h"
 #include "neorv32_gpio.h"
 #include "neorv32_gptmr.h"
 #include "neorv32_mtime.h"
@@ -232,6 +251,7 @@ enum NEORV32_CLOCK_PRSC_enum {
 #include "neorv32_onewire.h"
 #include "neorv32_pwm.h"
 #include "neorv32_sdi.h"
+#include "neorv32_slink.h"
 #include "neorv32_spi.h"
 #include "neorv32_sysinfo.h"
 #include "neorv32_trng.h"

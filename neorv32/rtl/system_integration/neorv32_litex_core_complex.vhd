@@ -111,7 +111,6 @@ architecture neorv32_litex_core_complex_rtl of neorv32_litex_core_complex is
   -- identifiers --
   constant hart_id_c  : std_ulogic_vector(31 downto 0) := x"00000000"; -- hardware thread ID ("core ID")
   constant jedec_id_c : std_ulogic_vector(31 downto 0) := x"00000000"; -- vendor's JEDEC manufacturer ID
-  constant user_id_c  : std_ulogic_vector(31 downto 0) := x"00000000"; -- custom user ID
 
   -- advanced configuration --
   constant num_configs_c : natural := 4;     -- number of pre-defined configurations
@@ -128,7 +127,6 @@ architecture neorv32_litex_core_complex_rtl of neorv32_litex_core_complex is
     riscv_zicntr : bool_t;
     riscv_zihpm  : bool_t;
     fast_ops     : bool_t;
-    ipb          : natural_t;
     pmp_nr       : natural_t;
     hpm_nr       : natural_t;
     icache_en    : bool_t;
@@ -150,14 +148,13 @@ architecture neorv32_litex_core_complex_rtl of neorv32_litex_core_complex is
     riscv_zicntr => ( false,   false,   true,    true  ), -- RISC-V standard CPU counters 'Zicntr'
     riscv_zihpm  => ( false,   false,   false,   true  ), -- RISC-V hardware performance monitors 'Zihpm'
     fast_ops     => ( false,   false,   true,    true  ), -- use DSPs and barrel-shifters
-    ipb          => ( 2,       2,       4,       4     ), -- instruction prefetch buffer depth, power of two, min 2
     pmp_nr       => ( 0,       0,       0,       8     ), -- number of PMP regions (0..16)
     hpm_nr       => ( 0,       0,       0,       8     ), -- number of HPM counters (0..29)
     icache_en    => ( false,   false,   true,    true  ), -- instruction cache enabled
     icache_nb    => ( 0,       0,       8,       8     ), -- number of cache blocks (lines), power of two
     icache_bs    => ( 0,       0,       64,      256   ), -- size of cache clock (lines) in bytes, power of two
     icache_as    => ( 1,       1,       1,       2     ), -- associativity (1 or 2)
-    dcache_en    => ( false,   false,   true,    true  ), -- instruction data enabled
+    dcache_en    => ( false,   false,   true,    true  ), -- data cache enabled
     dcache_nb    => ( 0,       0,       8,       8     ), -- number of cache blocks (lines), power of two
     dcache_bs    => ( 0,       0,       64,      256   ), -- size of cache clock (lines) in bytes, power of two
     mtime        => ( false,   true,    true,    true  )  -- RISC-V machine system timers
@@ -173,7 +170,6 @@ begin
     CLOCK_FREQUENCY              => 0,                              -- clock frequency of clk_i in Hz [not required by the core complex]
     HART_ID                      => hart_id_c,                      -- hardware thread ID
     VENDOR_ID                    => jedec_id_c,                     -- vendor's JEDEC ID
-    CUSTOM_ID                    => user_id_c,                      -- custom user-defined ID
     -- On-Chip Debugger (OCD) --
     ON_CHIP_DEBUGGER_EN          => DEBUG,                          -- implement on-chip debugger
     -- RISC-V CPU Extensions --
@@ -186,7 +182,6 @@ begin
     -- Tuning Options --
     FAST_MUL_EN                  => configs_c.fast_ops(CONFIG),     -- use DSPs for M extension's multiplier
     FAST_SHIFT_EN                => configs_c.fast_ops(CONFIG),     -- use barrel shifter for shift operations
-    CPU_IPB_ENTRIES              => configs_c.ipb(CONFIG),          -- entries in instruction prefetch buffer, has to be a power of 2, min 2
     -- Physical Memory Protection (PMP) --
     PMP_NUM_REGIONS              => configs_c.pmp_nr(CONFIG),       -- number of regions (0..16)
     PMP_MIN_GRANULARITY          => 4,                              -- minimal region granularity in bytes, has to be a power of 2, min 4 bytes

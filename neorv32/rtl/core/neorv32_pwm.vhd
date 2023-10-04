@@ -44,43 +44,26 @@ use neorv32.neorv32_package.all;
 
 entity neorv32_pwm is
   generic (
-    NUM_CHANNELS : natural -- number of PWM channels (0..12)
+    NUM_CHANNELS : natural range 0 to 12 -- number of PWM channels (0..12)
   );
   port (
-    -- host access --
     clk_i       : in  std_ulogic; -- global clock line
     rstn_i      : in  std_ulogic; -- global reset line, low-active, async
-    addr_i      : in  std_ulogic_vector(31 downto 0); -- address
-    rden_i      : in  std_ulogic; -- read enable
-    wren_i      : in  std_ulogic; -- write enable
-    data_i      : in  std_ulogic_vector(31 downto 0); -- data in
-    data_o      : out std_ulogic_vector(31 downto 0); -- data out
-    ack_o       : out std_ulogic; -- transfer acknowledge
-    -- clock generator --
+    bus_req_i   : in  bus_req_t;  -- bus request
+    bus_rsp_o   : out bus_rsp_t;  -- bus response
     clkgen_en_o : out std_ulogic; -- enable clock generator
     clkgen_i    : in  std_ulogic_vector(07 downto 0);
-    -- pwm output channels --
-    pwm_o       : out std_ulogic_vector(11 downto 0)
+    pwm_o       : out std_ulogic_vector(11 downto 0) -- PWM output
   );
 end neorv32_pwm;
 
 architecture neorv32_pwm_rtl of neorv32_pwm is
-
-  -- IO space: module base address --
-  constant hi_abb_c : natural := index_size_f(io_size_c)-1; -- high address boundary bit
-  constant lo_abb_c : natural := index_size_f(pwm_size_c); -- low address boundary bit
 
   -- Control register bits --
   constant ctrl_enable_c    : natural := 0; -- r/w: PWM enable
   constant ctrl_prsc0_bit_c : natural := 1; -- r/w: prescaler select bit 0
   constant ctrl_prsc1_bit_c : natural := 2; -- r/w: prescaler select bit 1
   constant ctrl_prsc2_bit_c : natural := 3; -- r/w: prescaler select bit 2
-
-  -- access control --
-  signal acc_en : std_ulogic; -- module access enable
-  signal addr   : std_ulogic_vector(31 downto 0); -- access address
-  signal wren   : std_ulogic; -- write enable
-  signal rden   : std_ulogic; -- read enable
 
   -- accessible regs --
   type pwm_ch_t is array (0 to 11) of std_ulogic_vector(7 downto 0);
@@ -99,19 +82,8 @@ architecture neorv32_pwm_rtl of neorv32_pwm is
 
 begin
 
-  -- Sanity Checks --------------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  assert not (NUM_CHANNELS > 12) report "NEORV32 PROCESSOR CONFIG ERROR! <PWM controller> invalid number of channels (0..12)!" severity error;
-
-
   -- Host Access ----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-
-  -- access control --
-  acc_en <= '1' when (addr_i(hi_abb_c downto lo_abb_c) = pwm_base_c(hi_abb_c downto lo_abb_c)) else '0';
-  addr   <= pwm_base_c(31 downto lo_abb_c) & addr_i(lo_abb_c-1 downto 2) & "00"; -- word aligned
-  rden   <= acc_en and rden_i;
-  wren   <= acc_en and wren_i;
 
   -- write access --
   write_access: process(rstn_i, clk_i)
@@ -121,32 +93,32 @@ begin
       prsc   <= (others => '0');
       pwm_ch <= (others => (others => '0'));
     elsif rising_edge(clk_i) then
-      if (wren = '1') then
+      if (bus_req_i.we = '1') then
         -- control register --
-        if (addr = pwm_ctrl_addr_c) then
-          enable <= data_i(ctrl_enable_c);
-          prsc   <= data_i(ctrl_prsc2_bit_c downto ctrl_prsc0_bit_c);
+        if (bus_req_i.addr(3 downto 2) = "00") then
+          enable <= bus_req_i.data(ctrl_enable_c);
+          prsc   <= bus_req_i.data(ctrl_prsc2_bit_c downto ctrl_prsc0_bit_c);
         end if;
         -- duty cycle register 0 --
-        if (addr = pwm_dc0_addr_c) then
-          pwm_ch(00) <= data_i(07 downto 00);
-          pwm_ch(01) <= data_i(15 downto 08);
-          pwm_ch(02) <= data_i(23 downto 16);
-          pwm_ch(03) <= data_i(31 downto 24);
+        if (bus_req_i.addr(3 downto 2) = "01") then
+          pwm_ch(00) <= bus_req_i.data(07 downto 00);
+          pwm_ch(01) <= bus_req_i.data(15 downto 08);
+          pwm_ch(02) <= bus_req_i.data(23 downto 16);
+          pwm_ch(03) <= bus_req_i.data(31 downto 24);
         end if;
         -- duty cycle register 1 --
-        if (addr = pwm_dc1_addr_c) then
-          pwm_ch(04) <= data_i(07 downto 00);
-          pwm_ch(05) <= data_i(15 downto 08);
-          pwm_ch(06) <= data_i(23 downto 16);
-          pwm_ch(07) <= data_i(31 downto 24);
+        if (bus_req_i.addr(3 downto 2) = "10") then
+          pwm_ch(04) <= bus_req_i.data(07 downto 00);
+          pwm_ch(05) <= bus_req_i.data(15 downto 08);
+          pwm_ch(06) <= bus_req_i.data(23 downto 16);
+          pwm_ch(07) <= bus_req_i.data(31 downto 24);
         end if;
         -- duty cycle register 2 --
-        if (addr = pwm_dc2_addr_c) then
-          pwm_ch(08) <= data_i(07 downto 00);
-          pwm_ch(09) <= data_i(15 downto 08);
-          pwm_ch(10) <= data_i(23 downto 16);
-          pwm_ch(11) <= data_i(31 downto 24);
+        if (bus_req_i.addr(3 downto 2) = "11") then
+          pwm_ch(08) <= bus_req_i.data(07 downto 00);
+          pwm_ch(09) <= bus_req_i.data(15 downto 08);
+          pwm_ch(10) <= bus_req_i.data(23 downto 16);
+          pwm_ch(11) <= bus_req_i.data(31 downto 24);
         end if;
       end if;
     end if;
@@ -156,19 +128,22 @@ begin
   read_access: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      ack_o  <= rden or wren; -- bus handshake
-      data_o <= (others => '0');
-      if (rden = '1') then
-        case addr(3 downto 2) is
-          when "00"   => data_o(ctrl_enable_c) <= enable; data_o(ctrl_prsc2_bit_c downto ctrl_prsc0_bit_c) <= prsc;
-          when "01"   => data_o <= pwm_ch_rd(03) & pwm_ch_rd(02) & pwm_ch_rd(01) & pwm_ch_rd(00);
-          when "10"   => data_o <= pwm_ch_rd(07) & pwm_ch_rd(06) & pwm_ch_rd(05) & pwm_ch_rd(04);
-          when "11"   => data_o <= pwm_ch_rd(11) & pwm_ch_rd(10) & pwm_ch_rd(09) & pwm_ch_rd(08);
-          when others => data_o <= (others => '0');
+      bus_rsp_o.ack  <= bus_req_i.re or bus_req_i.we; -- bus handshake
+      bus_rsp_o.data <= (others => '0');
+      if (bus_req_i.re = '1') then
+        case bus_req_i.addr(3 downto 2) is
+          when "00"   => bus_rsp_o.data(ctrl_enable_c) <= enable; bus_rsp_o.data(ctrl_prsc2_bit_c downto ctrl_prsc0_bit_c) <= prsc;
+          when "01"   => bus_rsp_o.data <= pwm_ch_rd(03) & pwm_ch_rd(02) & pwm_ch_rd(01) & pwm_ch_rd(00);
+          when "10"   => bus_rsp_o.data <= pwm_ch_rd(07) & pwm_ch_rd(06) & pwm_ch_rd(05) & pwm_ch_rd(04);
+          when "11"   => bus_rsp_o.data <= pwm_ch_rd(11) & pwm_ch_rd(10) & pwm_ch_rd(09) & pwm_ch_rd(08);
+          when others => bus_rsp_o.data <= (others => '0');
         end case;
       end if;
     end if;
   end process read_access;
+
+  -- no access error possible --
+  bus_rsp_o.err <= '0';
 
   -- duty cycle read-back --
   pwm_dc_rd_gen: process(pwm_ch)

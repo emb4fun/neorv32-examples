@@ -19,6 +19,8 @@ minimal base + privileged ISA `rv32i_zicsr` only to ensure it can work independe
 [options="header", grid="rows"]
 |=======================
 | Parameter | Default | Legal values | Description
+4+^| Memory layout
+| `EXE_BASE_ADDR` | `0x00000000` | _any_ | Base address / boot address for the executable (see section <<_address_space>>)
 4+^| Serial console interface
 | `UART_EN`   | `1` | `0`, `1` | Set to `0` to disable UART0 (no serial console at all)
 | `UART_BAUD` | `19200` | _any_ | Baud rate of UART0
@@ -37,7 +39,6 @@ minimal base + privileged ISA `rv32i_zicsr` only to ensure it can work independe
 | `SPI_BOOT_BASE_ADDR`    | `0x00400000`        | _any_ 32-bit value | Defines the _base_ address of the executable in external flash
 4+^| XIP configuration
 | `XIP_EN`                | `0` | `0`, `1`      | Set `1` to enable the XIP options
-| `XIP_PAGE_BASE_ADDR`    | `0x40000000`        | _any_ 32-bit value | Defines the page _base_ address where the XP flash will be mapped to
 |=======================
 
 [NOTE]

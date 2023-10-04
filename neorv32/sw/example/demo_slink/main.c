@@ -1,5 +1,5 @@
 // #################################################################################################
-// # << NEORV32 - RISC-V 'Zicond' Extension Test Program >>                                        #
+// # << NEORV32 - SLINK Demo Program >>                                                            #
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
@@ -34,14 +34,12 @@
 
 
 /**********************************************************************//**
- * @file zicond_test/main.c
+ * @file demo_slink/main.c
  * @author Stephan Nolting
- * @brief Test program for the NEORV32 'Zicond' ISA extension using pseudo-random
- * data as input; compares results from hardware against pure-sw reference functions.
+ * @brief SLINK demo program.
  **************************************************************************/
-
 #include <neorv32.h>
-#include "zicond_intrinsics.h"
+#include <string.h>
 
 
 /**********************************************************************//**
@@ -49,89 +47,142 @@
  **************************************************************************/
 /**@{*/
 /** UART BAUD rate */
-#define BAUD_RATE      (19200)
-//** Number of test cases for each instruction */
-#define NUM_TEST_CASES (1000000)
-//** Silent mode (only show actual errors when != 0) */
-#define SILENT_MODE    (1)
-
+#define BAUD_RATE 19200
+/**@}*/
 
 // Prototypes
+void slink_firq_handler(void);
 uint32_t xorshift32(void);
-uint32_t check_result(uint32_t num, uint32_t opa, uint32_t opb, uint32_t ref, uint32_t res);
-void print_report(int num_err, int num_tests);
 
 
 /**********************************************************************//**
- * Main function; test all available operations of the NEORV32 'B' extension
- * using bit manipulation intrinsics and software-only reference functions (emulation).
+ * Simple SLINK demo program.
  *
- * @note This program requires the bit-manipulation CPU extension.
+ * @note This program requires the UART0 and the SLINK to be synthesized.
  *
- * @return Irrelevant.
+ * @return =! 0 if execution failed.
  **************************************************************************/
 int main() {
 
-  uint32_t opa = 0, opb = 0, res_hw = 0, res_sw = 0;
-  uint32_t i = 0, err_cnt = 0;
-  const uint32_t num_tests = (int)NUM_TEST_CASES;
+  int i, slink_rc;
+  uint32_t slink_data;
 
-  // capture all exceptions and give debug info via UART
+
+  // capture all exceptions and give debug info via UART0
   neorv32_rte_setup();
 
-  // setup UART0 at default baud rate, no interrupts
+  // setup UART at default baud rate, no interrupts
   neorv32_uart0_setup(BAUD_RATE, 0);
 
+  // check if UART0 unit is implemented at all
+  if (neorv32_uart0_available() == 0) {
+    return -1; // abort if not implemented
+  }
+
+
   // intro
-  neorv32_uart0_printf("<<< NEORV32 Conditional Operations ISA Extension ('Zicond') Test >>>\n\n");
+  neorv32_uart0_printf("\n<<< SLINK Demo Program >>>\n\n");
 
-  // check if Zicond extension is implemented at all
-  if ((neorv32_cpu_csr_read(CSR_MXISA) & (1<<CSR_MXISA_ZICOND)) == 0) {
-    neorv32_uart0_printf("Error! Zicond ISA extension not implemented!\n");
-    return 1;
+  // check if SLINK is implemented at all
+  if (neorv32_slink_available() == 0) {
+    neorv32_uart0_printf("ERROR! SLINK module not implemented.");
+    return -1;
   }
 
-#if (SILENT_MODE != 0)
-  neorv32_uart0_printf("SILENT_MODE enabled (only showing actual errors)\n");
-#endif
-  neorv32_uart0_printf("Starting tests (%i test cases per instruction)...\n\n", num_tests);
+  // show SLINK FIFO configuration
+  int rx_depth = neorv32_slink_get_rx_fifo_depth();
+  int tx_depth = neorv32_slink_get_tx_fifo_depth();
+  neorv32_uart0_printf("RX FIFO depth: %u\n"
+                       "TX FIFO depth: %u\n\n",
+                       rx_depth, tx_depth);
 
+  // setup SLINK module
+  neorv32_slink_setup(0);
 
-  // CZERO.EQZ
-  neorv32_uart0_printf("\nczero.eqz:\n");
-  err_cnt = 0;
-  for (i=0;i<num_tests; i++) {
-    opa = xorshift32();
-    opb = xorshift32() & 1U;
-    res_sw = riscv_emulate_czero_eqz(opa, opb);
-    res_hw = riscv_intrinsic_czero_eqz(opa, opb);
-    err_cnt += check_result(i, opa, opb, res_sw, res_hw);
+  // TX demo
+  neorv32_uart0_printf("-------- TX Demo --------\n");
+
+  for (i=0; i<(rx_depth+tx_depth+1); i++) {
+    slink_data = xorshift32();
+    neorv32_uart0_printf("[%i] Sending 0x%x... ", i, slink_data);
+
+    slink_rc = neorv32_slink_tx_status();
+    if (slink_rc == SLINK_FIFO_FULL) {
+      neorv32_uart0_printf("FAILED! TX FIFO full!\n");
+      break;
+    }
+    else {
+      neorv32_slink_put(slink_data);
+      neorv32_uart0_printf("ok\n");
+    }
   }
-  print_report(err_cnt, num_tests);
 
 
-  // CZREO.NEZ
-  neorv32_uart0_printf("\nczreo.nez:\n");
-  err_cnt = 0;
-  for (i=0;i<num_tests; i++) {
-    opa = xorshift32();
-    opb = xorshift32() & 1U;
-    res_sw = riscv_emulate_czero_nez(opa, opb);
-    res_hw = riscv_intrinsic_czero_nez(opa, opb);
-    err_cnt += check_result(i, opa, opb, res_sw, res_hw);
+  // RX demo
+  neorv32_uart0_printf("\n-------- RX Demo --------\n");
+
+  for (i=0; i<(rx_depth+tx_depth+1); i++) {
+    neorv32_uart0_printf("[%i] Reading RX data... ", i);
+
+    slink_rc = neorv32_slink_rx_status();
+    if (slink_rc == SLINK_FIFO_EMPTY) {
+      neorv32_uart0_printf("FAILED! RX FIFO empty!\n");
+      break;
+    }
+    else {
+      neorv32_uart0_printf("0x%x\n", neorv32_slink_get());
+    }
   }
-  print_report(err_cnt, num_tests);
 
 
-  neorv32_uart0_printf("\n\nZicond extension tests completed.\n");
+  // IRQ demo
+  neorv32_uart0_printf("\n------ RX IRQ Demo -------\n");
+
+  // reconfigure SLINK module
+  neorv32_slink_setup(1 << SLINK_CTRL_IRQ_RX_NEMPTY); // interrupt if RX data available
+  neorv32_slink_rx_clear();
+  neorv32_slink_tx_clear();
+
+  // NEORV32 runtime environment: install SLINK FIRQ handler
+  neorv32_rte_handler_install(SLINK_RTE_ID, slink_firq_handler);
+  neorv32_cpu_csr_set(CSR_MIE, 1 << SLINK_FIRQ_ENABLE); // enable SLINK FIRQ
+  neorv32_cpu_csr_set(CSR_MSTATUS, 1 << CSR_MSTATUS_MIE); // enable machine-mode interrupts
+
+  for (i=0; i<4; i++) {
+    slink_data = xorshift32();
+    neorv32_uart0_printf("[%i] Sending 0x%x... ", i, slink_data);
+
+    slink_rc = neorv32_slink_tx_status();
+    if (slink_rc == SLINK_FIFO_FULL) {
+      neorv32_uart0_printf("FAILED! TX FIFO full!\n");
+      break;
+    }
+    else {
+      neorv32_slink_put(slink_data);
+      neorv32_uart0_printf("ok\n");
+    }
+  }
+
+  neorv32_uart0_printf("\nProgram execution completed.\n");
   return 0;
 }
 
 
 /**********************************************************************//**
- * Pseudo-Random Number Generator (to generate deterministic test vectors).
+ * SLINK interrupt handler.
+ **************************************************************************/
+void slink_firq_handler(void) {
+
+  neorv32_uart0_printf(" <<RX data: 0x%x>> ", neorv32_slink_get());
+
+  neorv32_cpu_csr_clr(CSR_MIP, 1 << SLINK_FIRQ_PENDING); // ack/clear FIRQ *after* reading RX data
+}
+
+
+/**********************************************************************//**
+ * Simple pseudo random number generator.
  *
- * @return Random data (32-bit).
+ * @return Random number.
  **************************************************************************/
 uint32_t xorshift32(void) {
 
@@ -142,55 +193,4 @@ uint32_t xorshift32(void) {
   x32 ^= x32 << 5;
 
   return x32;
-}
-
-
-/**********************************************************************//**
- * Check results (reference (SW) vs actual hardware).
- *
- * @param[in] num Test case number
- * @param[in] opa Operand 1
- * @param[in] opb Operand 2
- * @param[in] ref Software reference
- * @param[in] res Actual results
- * @return zero if results are equal.
- **************************************************************************/
-uint32_t check_result(uint32_t num, uint32_t opa, uint32_t opb, uint32_t ref, uint32_t res) {
-
-#if (SILENT_MODE == 0)
-  neorv32_uart0_printf("%u: op = 0x%x, cond = %u : ref[SW] = 0x%x vs. res[HW] = 0x%x ", num, opa, opb, ref, res);
-#endif
-
-  if (ref != res) {
-#if (SILENT_MODE != 0)
-    neorv32_uart0_printf("%u: op = 0x%x, cond = %u : ref[SW] = 0x%x vs. res[HW] = 0x%x ", num, opa, opb, ref, res);
-#endif
-    neorv32_uart0_printf("%c[1m[FAILED]%c[0m\n", 27, 27);
-    return 1;
-  }
-  else {
-#if (SILENT_MODE == 0)
-    neorv32_uart0_printf("%c[1m[ok]%c[0m\n", 27, 27);
-#endif
-    return 0;
-  }
-}
-
-
-/**********************************************************************//**
- * Print test report.
- *
- * @param[in] num_err Number or errors in this test.
- * @param[in] num_tests Total number of conducted tests.
- **************************************************************************/
-void print_report(int num_err, int num_tests) {
-
-  neorv32_uart0_printf("Errors: %i/%i ", num_err, num_tests);
-
-  if (num_err == 0) {
-    neorv32_uart0_printf("%c[1m[ok]%c[0m\n", 27, 27);
-  }
-  else {
-    neorv32_uart0_printf("%c[1m[FAILED]%c[0m\n", 27, 27);
-  }
 }

@@ -41,19 +41,15 @@ use neorv32.neorv32_package.all;
 
 architecture neorv32_dmem_rtl of neorv32_dmem is
 
-  -- IO space: module base address --
-  constant hi_abb_c : natural := 31; -- high address boundary bit
-  constant lo_abb_c : natural := index_size_f(DMEM_SIZE); -- low address boundary bit
-
   -- local signals --
-  signal acc_en : std_ulogic;
-  signal rdata  : std_ulogic_vector(31 downto 0);
-  signal rden   : std_ulogic;
-  signal addr   : std_ulogic_vector(index_size_f(DMEM_SIZE/4)-1 downto 0);
+  signal rdata : std_ulogic_vector(31 downto 0);
+  signal rden  : std_ulogic;
+  signal addr  : std_ulogic_vector(index_size_f(DMEM_SIZE/4)-1 downto 0);
 
   -- -------------------------------------------------------------------------------------------------------------- --
   -- The memory (RAM) is built from 4 individual byte-wide memories b0..b3, since some synthesis tools have         --
   -- problems with 32-bit memories that provide dedicated byte-enable signals AND/OR with multi-dimensional arrays. --
+  -- [NOTE] Read-during-write behavior is irrelevant as read and write access are mutually exclusive.               --
   -- -------------------------------------------------------------------------------------------------------------- --
 
   -- RAM - not initialized at all --
@@ -69,18 +65,17 @@ begin
 
   -- Sanity Checks --------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  assert false report
-    "NEORV32 PROCESSOR CONFIG NOTE: Using DEFAULT platform-agnostic DMEM." severity note;
+  assert not (is_power_of_two_f(DMEM_SIZE) = false) report
+    "NEORV32 PROCESSOR CONFIG ERROR: Internal DMEM size has to be a power of two!" severity error;
 
   assert false report
-    "NEORV32 PROCESSOR CONFIG NOTE: Implementing processor-internal DMEM (RAM, " & natural'image(DMEM_SIZE) &
+    "NEORV32 PROCESSOR CONFIG NOTE: Implementing DEFAULT processor-internal DMEM (RAM, " & natural'image(DMEM_SIZE) &
     " bytes)." severity note;
 
 
   -- Access Control -------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  acc_en <= '1' when (addr_i(hi_abb_c downto lo_abb_c) = DMEM_BASE(hi_abb_c downto lo_abb_c)) else '0';
-  addr   <= addr_i(index_size_f(DMEM_SIZE/4)+1 downto 2); -- word aligned
+  addr <= bus_req_i.addr(index_size_f(DMEM_SIZE/4)+1 downto 2); -- word aligned
 
 
   -- Memory Access --------------------------------------------------------------------------
@@ -88,30 +83,22 @@ begin
   mem_access: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      -- this RAM style should not require "no_rw_check" attributes as the read-after-write behavior
-      -- is intended to be defined implicitly via the if-WRITE-else-READ construct
-      if (acc_en = '1') then -- reduce switching activity when not accessed
-        if (wren_i = '1') and (ben_i(0) = '1') then -- byte 0
-          mem_ram_b0(to_integer(unsigned(addr))) <= data_i(07 downto 00);
-        else
-          mem_ram_b0_rd <= mem_ram_b0(to_integer(unsigned(addr)));
-        end if;
-        if (wren_i = '1') and (ben_i(1) = '1') then -- byte 1
-          mem_ram_b1(to_integer(unsigned(addr))) <= data_i(15 downto 08);
-        else
-          mem_ram_b1_rd <= mem_ram_b1(to_integer(unsigned(addr)));
-        end if;
-        if (wren_i = '1') and (ben_i(2) = '1') then -- byte 2
-          mem_ram_b2(to_integer(unsigned(addr))) <= data_i(23 downto 16);
-        else
-          mem_ram_b2_rd <= mem_ram_b2(to_integer(unsigned(addr)));
-        end if;
-        if (wren_i = '1') and (ben_i(3) = '1') then -- byte 3
-          mem_ram_b3(to_integer(unsigned(addr))) <= data_i(31 downto 24);
-        else
-          mem_ram_b3_rd <= mem_ram_b3(to_integer(unsigned(addr)));
-        end if;
+      if (bus_req_i.we = '1') and (bus_req_i.ben(0) = '1') then -- byte 0
+        mem_ram_b0(to_integer(unsigned(addr))) <= bus_req_i.data(07 downto 00);
       end if;
+      if (bus_req_i.we = '1') and (bus_req_i.ben(1) = '1') then -- byte 1
+        mem_ram_b1(to_integer(unsigned(addr))) <= bus_req_i.data(15 downto 08);
+      end if;
+      if (bus_req_i.we = '1') and (bus_req_i.ben(2) = '1') then -- byte 2
+        mem_ram_b2(to_integer(unsigned(addr))) <= bus_req_i.data(23 downto 16);
+      end if;
+      if (bus_req_i.we = '1') and (bus_req_i.ben(3) = '1') then -- byte 3
+        mem_ram_b3(to_integer(unsigned(addr))) <= bus_req_i.data(31 downto 24);
+      end if;
+      mem_ram_b0_rd <= mem_ram_b0(to_integer(unsigned(addr)));
+      mem_ram_b1_rd <= mem_ram_b1(to_integer(unsigned(addr)));
+      mem_ram_b2_rd <= mem_ram_b2(to_integer(unsigned(addr)));
+      mem_ram_b3_rd <= mem_ram_b3(to_integer(unsigned(addr)));
     end if;
   end process mem_access;
 
@@ -121,8 +108,8 @@ begin
   bus_feedback: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      rden  <= acc_en and rden_i;
-      ack_o <= acc_en and (rden_i or wren_i);
+      rden          <= bus_req_i.re;
+      bus_rsp_o.ack <= bus_req_i.re or bus_req_i.we;
     end if;
   end process bus_feedback;
 
@@ -130,7 +117,10 @@ begin
   rdata <= mem_ram_b3_rd & mem_ram_b2_rd & mem_ram_b1_rd & mem_ram_b0_rd;
 
   -- output gate --
-  data_o <= rdata when (rden = '1') else (others => '0');
+  bus_rsp_o.data <= rdata when (rden = '1') else (others => '0');
+
+  -- no access error possible --
+  bus_rsp_o.err <= '0';
 
 
 end neorv32_dmem_rtl;

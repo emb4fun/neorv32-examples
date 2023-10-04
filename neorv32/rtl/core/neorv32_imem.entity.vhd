@@ -36,21 +36,17 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+library neorv32;
+use neorv32.neorv32_package.all;
+
 entity neorv32_imem is
   generic (
-    IMEM_BASE    : std_ulogic_vector(31 downto 0); -- memory base address
-    IMEM_SIZE    : natural; -- processor-internal instruction memory size in bytes
+    IMEM_SIZE    : natural; -- processor-internal instruction memory size in bytes, has to be a power of 2
     IMEM_AS_IROM : boolean  -- implement IMEM as pre-initialized read-only memory?
   );
   port (
-    clk_i  : in  std_ulogic; -- global clock line
-    rden_i : in  std_ulogic; -- read enable
-    wren_i : in  std_ulogic; -- write enable
-    ben_i  : in  std_ulogic_vector(03 downto 0); -- byte write enable
-    addr_i : in  std_ulogic_vector(31 downto 0); -- address
-    data_i : in  std_ulogic_vector(31 downto 0); -- data in
-    data_o : out std_ulogic_vector(31 downto 0); -- data out
-    ack_o  : out std_ulogic; -- transfer acknowledge
-    err_o  : out std_ulogic  -- transfer error
+    clk_i     : in  std_ulogic; -- global clock line
+    bus_req_i : in  bus_req_t;  -- bus request
+    bus_rsp_o : out bus_rsp_t   -- bus response
   );
 end neorv32_imem;

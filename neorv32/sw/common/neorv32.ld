@@ -63,20 +63,19 @@ __neorv32_ram_size = DEFINED(__neorv32_ram_size) ? __neorv32_ram_size : 8K;
 /* Default HEAP size (= 0; no heap at all) */
 __neorv32_heap_size = DEFINED(__neorv32_heap_size) ? __neorv32_heap_size : 0;
 
-/* Default section base addresses - do not change this unless the hardware-defined address space layout is changed! */
-__neorv32_rom_base = DEFINED(__neorv32_rom_base) ? __neorv32_rom_base : 0x00000000; /* = VHDL package's "ispace_base_c" */
-__neorv32_ram_base = DEFINED(__neorv32_ram_base) ? __neorv32_ram_base : 0x80000000; /* = VHDL package's "dspace_base_c" */
+/* Default section base addresses */
+__neorv32_rom_base = DEFINED(__neorv32_rom_base) ? __neorv32_rom_base : 0x00000000;
+__neorv32_ram_base = DEFINED(__neorv32_ram_base) ? __neorv32_ram_base : 0x80000000;
 
 
 /* ************************************************************************************************* */
-/* If compiling the bootloader, the rom section is automatically re-mapped to the processor-internal */
+/* If compiling the bootloader, the ROM section is automatically re-mapped to the processor-internal */
 /* bootloader ROM address space.                                                                     */
 /* ************************************************************************************************* */
 MEMORY
 {
-  rom   (rx) : ORIGIN = DEFINED(make_bootloader) ? 0xFFFF0000 : __neorv32_rom_base, LENGTH = DEFINED(make_bootloader) ? 32K : __neorv32_rom_size
-  ram  (rwx) : ORIGIN = __neorv32_ram_base, LENGTH = DEFINED(make_bootloader) ? 512 : __neorv32_ram_size
-  iodev (rw) : ORIGIN = 0xFFFFFE00, LENGTH = 512 /* this is hardware-defined and should not be modified! */
+  rom  (rx) : ORIGIN = DEFINED(make_bootloader) ? 0xFFFFC000 : __neorv32_rom_base, LENGTH = DEFINED(make_bootloader) ? 8K : __neorv32_rom_size
+  ram (rwx) : ORIGIN = __neorv32_ram_base, LENGTH = DEFINED(make_bootloader) ? 512 : __neorv32_ram_size
 }
 
 
@@ -101,12 +100,27 @@ SECTIONS
     /* .gnu.warning sections are handled specially by elf.em.  */
     *(.gnu.warning)
 
+    /* these are a list of 32-bit pointers that point to functions
+     * that are called before/after executing "main". */
+
+    /* The following defines an array with constructors, which are called
+     * from crt0.s before "main", but of course after data init / bss clear. */
+
+    PROVIDE_HIDDEN(__init_array_start = .);
+    KEEP (*(.preinit_array))
+    KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+    KEEP (*(.init_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .ctors))
+    PROVIDE_HIDDEN(__init_array_end = .);
+
     KEEP (*(SORT_NONE(.init)))
     KEEP (*(SORT_NONE(.fini)))
-    KEEP (*(SORT(.ctors.*)))
-    KEEP (*(.ctors))
-    KEEP (*(SORT(.dtors.*)))
-    KEEP (*(.dtors))
+
+    /* main should never return, but if it does, the destructors are called. */
+
+    PROVIDE_HIDDEN(__fini_array_start = .);
+    KEEP (*(SORT_BY_INIT_PRIORITY(.fini_array.*) SORT_BY_INIT_PRIORITY(.dtors.*)))
+    KEEP (*(.fini_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .dtors))
+    PROVIDE_HIDDEN(__fini_array_end = .);
 
     /* finish section on WORD boundary */
     . = ALIGN(4);
@@ -116,28 +130,9 @@ SECTIONS
   } > rom
 
 
-  /* Second part of the actual executable: read-only data, placed right next to .text */
-  .rodata : ALIGN(4)
+  /* Second part of the actual executable: read-only data, PLACED RIGHT NEXT to .text using "__etext" symbol */
+  .rodata __etext :
   {
-    /* these are a list of 32-bit pointers that point to functions
-     * that are called before/after executing "main". */
-
-	/* The following defines an array with constructors, which are called
-	   from crt0.s before "main", but of course after data init / bss clear. */
-
-    PROVIDE_HIDDEN(__init_array_start = .);
-    KEEP (*(.preinit_array))
-    KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
-    KEEP (*(.init_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .ctors))
-    PROVIDE_HIDDEN(__init_array_end = .);
-
-    /* main should never return, but if it does, the destructors are called. */
-
-    PROVIDE_HIDDEN(__fini_array_start = .);
-    KEEP (*(SORT_BY_INIT_PRIORITY(.fini_array.*) SORT_BY_INIT_PRIORITY(.dtors.*)))
-    KEEP (*(.fini_array EXCLUDE_FILE (*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o ) .dtors))
-    PROVIDE_HIDDEN(__fini_array_end = .);
-
     /* constant data like strings */
     *(.rodata .rodata.* .gnu.linkonce.r.*)
     *(.rodata1)
@@ -305,6 +300,4 @@ SECTIONS
   PROVIDE(__crt0_copy_data_src_begin = LOADADDR(.data));
   PROVIDE(__crt0_copy_data_dst_begin = ADDR(.data));
   PROVIDE(__crt0_copy_data_dst_end   = ADDR(.data) + SIZEOF(.data));
-  PROVIDE(__crt0_io_space_begin      = ORIGIN(iodev));
-  PROVIDE(__crt0_io_space_end        = ORIGIN(iodev) + LENGTH(iodev));
 }

@@ -1,10 +1,9 @@
 -- #################################################################################################
--- # << NEORV32 - CPU Co-Processor: Custom (Instructions) Functions Unit >>                        #
+-- # << NEORV32 CPU - Co-Processor: Custom (Instructions) Functions Unit >>                        #
 -- # ********************************************************************************************* #
 -- # For user-defined custom RISC-V instructions (R3-type, R4-type and R5-type formats).           #
 -- # See the CPU's documentation for more information.                                             #
--- #                                                                                               #
--- # NOTE: Take a look at the "software-counterpart" of this CFU example in 'sw/example/demo_cfu'. #
+-- # Also take a look at the "software-counterpart" of this CFU example in 'sw/example/demo_cfu'.  #
 -- # ********************************************************************************************* #
 -- # BSD 3-Clause License                                                                          #
 -- #                                                                                               #
@@ -47,33 +46,37 @@ use neorv32.neorv32_package.all;
 entity neorv32_cpu_cp_cfu is
   port (
     -- global control --
-    clk_i   : in  std_ulogic; -- global clock, rising edge
-    rstn_i  : in  std_ulogic; -- global reset, low-active, async
-    ctrl_i  : in  ctrl_bus_t; -- main control bus
-    start_i : in  std_ulogic; -- trigger operation
+    clk_i       : in  std_ulogic; -- global clock, rising edge
+    rstn_i      : in  std_ulogic; -- global reset, low-active, async
+    ctrl_i      : in  ctrl_bus_t; -- main control bus
+    start_i     : in  std_ulogic; -- trigger operation
+    -- CSR interface --
+    csr_we_i    : in  std_ulogic; -- global write enable
+    csr_addr_i  : in  std_ulogic_vector(11 downto 0); -- address
+    csr_wdata_i : in  std_ulogic_vector(XLEN-1 downto 0); -- write data
+    csr_rdata_o : out std_ulogic_vector(XLEN-1 downto 0); -- read data
     -- data input --
-    rs1_i   : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 1
-    rs2_i   : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 2
-    rs3_i   : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 3
-    rs4_i   : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 4
+    rs1_i       : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 1
+    rs2_i       : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 2
+    rs3_i       : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 3
+    rs4_i       : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 4
     -- result and status --
-    res_o   : out std_ulogic_vector(XLEN-1 downto 0); -- operation result
-    valid_o : out std_ulogic -- data output valid
+    res_o       : out std_ulogic_vector(XLEN-1 downto 0); -- operation result
+    valid_o     : out std_ulogic -- data output valid
   );
 end neorv32_cpu_cp_cfu;
 
 architecture neorv32_cpu_cp_cfu_rtl of neorv32_cpu_cp_cfu is
 
--- CFU controll - do not modify! ---------------------------
--- ------------------------------------------------------------
-
+  -- CFU Control - do not modify! ----------------------------
+  -- ------------------------------------------------------------
   type control_t is record
     busy   : std_ulogic; -- CFU is busy
     done   : std_ulogic; -- set to '1' when processing is done
-    result : std_ulogic_vector(XLEN-1 downto 0); -- user's processing result (for write-back to register file)
+    result : std_ulogic_vector(XLEN-1 downto 0); -- CFU processing result (for write-back to register file)
     rtype  : std_ulogic_vector(1 downto 0); -- instruction type, see constants below
-    funct3 : std_ulogic_vector(2 downto 0); -- "funct3" bit-field from custom instruction
-    funct7 : std_ulogic_vector(6 downto 0); -- "funct7" bit-field from custom instruction
+    funct3 : std_ulogic_vector(2 downto 0); -- "funct3" bit-field from custom instruction word
+    funct7 : std_ulogic_vector(6 downto 0); -- "funct7" bit-field from custom instruction word
   end record;
   signal control : control_t;
 
@@ -83,9 +86,21 @@ architecture neorv32_cpu_cp_cfu_rtl of neorv32_cpu_cp_cfu is
   constant r5typeA_c : std_ulogic_vector(1 downto 0) := "10"; -- R5-type instruction A (custom-2 opcode)
   constant r5typeB_c : std_ulogic_vector(1 downto 0) := "11"; -- R5-type instruction B (custom-3 opcode)
 
--- User Logic ----------------------------------------------
--- ------------------------------------------------------------
+  -- valid CSR access --
+  signal cfu_csr : std_ulogic;
 
+  -- control and status register interface --
+  type csr_t is record
+    we    : std_ulogic;
+    addr  : std_ulogic_vector(1 downto 0);
+    wdata : std_ulogic_vector(XLEN-1 downto 0);
+    rdata : std_ulogic_vector(XLEN-1 downto 0);
+  end record;
+  signal csr : csr_t;
+
+
+  -- User-Defined Logic --------------------------------------
+  -- ------------------------------------------------------------
   -- multiply-add unit (r4-type instruction example) --
   type madd_t is record
     sreg : std_ulogic_vector(2 downto 0); -- 3 cycles latency = 3 bits in arbitration shift register
@@ -99,14 +114,20 @@ architecture neorv32_cpu_cp_cfu_rtl of neorv32_cpu_cp_cfu is
   end record;
   signal madd : madd_t;
 
+  -- custom control and status registers (CSRs) --
+  signal cfu_csr_0, cfu_csr_1 : std_ulogic_vector(XLEN-1 downto 0);
+
 begin
 
 -- ****************************************************************************************************************************
--- This controller is required to handle the CPU/pipeline interface. Do not modify!
+-- This controller / proxy-logic is required to handle the CFU <-> CPU interface. Do not modify!
 -- ****************************************************************************************************************************
 
   -- CFU Controller -------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
+  -- The <control> record acts as proxy logic that ensures correct communication with the
+  -- CPU pipeline. However, this control instance adds one additional cycle of latency.
+  -- Advanced users can remove this default control instance to obtain maximum throughput.
   cfu_control: process(rstn_i, clk_i)
   begin
     if (rstn_i = '0') then
@@ -115,14 +136,12 @@ begin
     elsif rising_edge(clk_i) then
       res_o <= (others => '0'); -- default; all CPU co-processor outputs are logically OR-ed
       if (control.busy = '0') then -- idle
-        if (start_i = '1') then
+        if (start_i = '1') then -- trigger new CFU operation
           control.busy <= '1';
         end if;
-      else -- busy
-        if (control.done = '1') or (ctrl_i.cpu_trap = '1') then -- processing done? abort if trap (exception)
-          res_o        <= control.result; -- output result for just one cycle, CFU output has to be all-zero otherwise
-          control.busy <= '0';
-        end if;
+      elsif (control.done = '1') or (ctrl_i.cpu_trap = '1') then -- operation done? abort if trap (exception)
+        res_o        <= control.result; -- output result for just one cycle, CFU output has to be all-zero otherwise
+        control.busy <= '0';
       end if;
     end if;
   end process cfu_control;
@@ -135,9 +154,16 @@ begin
   control.funct3 <= ctrl_i.ir_funct3;
   control.funct7 <= ctrl_i.ir_funct12(11 downto 5);
 
+  -- CSR proxy logic --
+  cfu_csr     <= '1' when (csr_addr_i(11 downto 2) = csr_cfureg0_c(11 downto 2)) else '0';
+  csr.we      <= cfu_csr and csr_we_i;
+  csr.addr    <= csr_addr_i(1 downto 0);
+  csr.wdata   <= csr_wdata_i;
+  csr_rdata_o <= csr.rdata when (cfu_csr = '1') else (others => '0');
+
 
 -- ****************************************************************************************************************************
--- CFU Hardware Documentation and Implementation Notes
+-- CFU Hardware Documentation
 -- ****************************************************************************************************************************
 
   -- ----------------------------------------------------------------------------------------
@@ -156,7 +182,6 @@ begin
   -- Two individual RISC-V R5-Type Instructions (NEORV32-specific):
   -- This format consists of four source registers ('rs1', 'rs2', 'rs3', 'rs4') and a destination register ('rd'). There are
   -- no immediate fields.
-
 
   -- ----------------------------------------------------------------------------------------
   -- Input Operands
@@ -190,20 +215,16 @@ begin
   --
   -- [NOTE] The R4-type instructions and R5-type instruction provide additional source register. When used, this will increase
   --        the hardware requirements of the register file.
-  --
-  -- [NOTE] The CFU cannot cause any kind of exception at all (yet; this feature is planned for the future).
-
 
   -- ----------------------------------------------------------------------------------------
   -- Result Output
   -- ----------------------------------------------------------------------------------------
-  -- > control.result (output, 32-bit): processing result ("data")
+  -- > control.result (output, 32-bit): processing result
   --
   -- When the CFU has completed computations, the data send via the <control.result> signal will be written to the CPU's register
   -- file. The destination register is addressed by the <rd> bit-field in the instruction word. The CFU result output is registered
   -- in the CFU controller (see above) - so do not worry too much about increasing the CPU's critical path with your custom
   -- logic.
-
 
   -- ----------------------------------------------------------------------------------------
   -- Processing Control
@@ -218,25 +239,64 @@ begin
   -- as all internal computations have completed, the <control.done> signal has to be set to indicate completion. This will
   -- complete CFU instruction operation and will also write the processing result <control.result> back to the CPU register file.
   --
-  -- [NOTE] If the <control.done> signal is not set within a bound time window (default = 128 cycles) the CFU operation is
+  -- [NOTE] If the <control.done> signal is not set within a bound time window (default = 512 cycles) the CFU operation is
   --        automatically terminated by the hardware and an illegal instruction exception is raised. This feature can also be
-  --        be used to implement custom CFU exceptions.
-
+  --        be used to implement custom CFU exceptions (for example to indicate invalid CFU operations).
 
   -- ----------------------------------------------------------------------------------------
-  -- Final Notes
+  -- CFU-Internal Control and Status Registers (CFU-CSRs)
   -- ----------------------------------------------------------------------------------------
-  -- The <control> record provides something like a "keeper" that ensures correct functionality and that also provides a
-  -- simple-to-use interface hardware designers can start with. However, the control instance adds one additional cycle of
-  -- latency. Advanced users can remove this default control instance to obtain maximum throughput.
+  -- > csr.we    (input,   1-bit): set to indicate a valid CFU CSR write access
+  -- > csr.addr  (input,   2-bit): CSR address
+  -- > csr.wdata (input,  32-bit): CSR write data, valid when <csr.we> is set
+  -- > csr.rdata (output, 32-bit): CSR read data, hardwire to all-zero if no CSRs are used
+  --
+  -- The NEORV32 provides four directly accessible CSRs for custom use inside the CFU. These registers can be used to pass
+  -- further operands, to check the unit's status or to configure operation modes. For instance, a 128-bit wide key could be
+  -- passed to an encryption system. These CFU-CSRs are accessed via an _indirect access mechanism_ from the CPU.
+  --
+  -- If more than four CFU-internal CSRs are required the designer can implement an "indirect access mechanism" based on just
+  -- two of the default CSRs: one CSR is used to configure the index while the other is used as alias to exchange data with
+  -- the indexed CFU-internal CSR - this concept is similar to the RISC-V Indirect CSR Access Extension Specification (Smcsrind).
 
 
 -- ****************************************************************************************************************************
 -- Actual CFU User Logic Example - replace this with your custom logic
 -- ****************************************************************************************************************************
 
-  -- Iterative Multiply-Add Unit - Iteration Control ----------------------------------------
+  -- CFU-Internal Control and Status Registers (CFU-CSRs) -----------------------------------
   -- -------------------------------------------------------------------------------------------
+  -- synchronous write access --
+  csr_write_access: process(rstn_i, clk_i)
+  begin
+    if (rstn_i = '0') then
+      cfu_csr_0 <= (others => '0');
+      cfu_csr_1 <= (others => '0');
+    elsif rising_edge(clk_i) then
+      if (csr.we = '1') and (csr.addr(1 downto 0) = "00") then
+        cfu_csr_0 <= csr.wdata;
+      end if;
+      if (csr.we = '1') and (csr.addr(1 downto 0) = "01") then
+        cfu_csr_1 <= csr.wdata;
+      end if;
+    end if;
+  end process csr_write_access;
+
+  -- asynchronous read access --
+  csr_read_access: process(csr.addr, cfu_csr_0, cfu_csr_1)
+  begin
+    case csr.addr(1 downto 0) is
+      when "00"   => csr.rdata <= cfu_csr_0;       -- CSR0: simple read/write register
+      when "01"   => csr.rdata <= cfu_csr_1;       -- CSR1: simple read/write register
+      when "10"   => csr.rdata <= x"1234abcd";     -- CSR2: hardwired/read-only register
+      when others => csr.rdata <= (others => '0'); -- CSR3: not implemented
+    end case;
+  end process csr_read_access;
+
+
+  -- Iterative Multiply-Add Unit ------------------------------------------------------------
+  -- -------------------------------------------------------------------------------------------
+  -- iteration control --
   madd_control: process(rstn_i, clk_i)
   begin
     if (rstn_i = '0') then
@@ -256,12 +316,10 @@ begin
     end if;
   end process madd_control;
 
-  -- processing has reached last stage (=done) when sreg's MSB is set --
+  -- processing has reached last stage (= done) when sreg's MSB is set --
   madd.done <= madd.sreg(madd.sreg'left);
 
-
-  -- Iterative Multiply-Add Unit - Arithmetic Core ------------------------------------------
-  -- -------------------------------------------------------------------------------------------
+  -- arithmetic core --
   madd_core: process(clk_i)
   begin
     if rising_edge(clk_i) then
@@ -283,12 +341,10 @@ begin
   begin
     case control.rtype is
 
-      -- --------------------------------------------------------
       when r3type_c => -- R3-type instructions
-      -- --------------------------------------------------------
-
+      -- ----------------------------------------------------------------------
         -- This is a simple ALU that implements four pure-combinatorial instructions.
-        -- The actual function is selected by the "funct3" bit-field of the custom instruction.
+        -- The actual function is selected by the "funct3" bit-field.
         case control.funct3 is
           when "000" => -- funct3 = "000": bit-reversal of rs1
             control.result <= bit_rev_f(rs1_i);
@@ -301,10 +357,8 @@ begin
             control.done   <= '0'; -- this will cause an illegal instruction exception after timeout
         end case;
 
-      -- --------------------------------------------------------
       when r4type_c => -- R4-type instructions
-      -- --------------------------------------------------------
-
+      -- ----------------------------------------------------------------------
         -- This is an iterative multiply-and-add unit that requires several cycles for processing.
         -- The actual function is selected by the lowest bit of the "funct3" bit-field.
         case control.funct3 is
@@ -319,28 +373,22 @@ begin
             control.done   <= '0'; -- this will cause an illegal instruction exception after timeout
         end case;
 
-      -- --------------------------------------------------------
       when r5typeA_c => -- R5-type instruction A
-      -- --------------------------------------------------------
-
+      -- ----------------------------------------------------------------------
         -- No function/immediate bit-fields are available for this instruction type.
         -- Hence, there is just one operation that can be implemented.
         control.result <= rs1_i and rs2_i and rs3_i and rs4_i; -- AND-all
         control.done   <= '1'; -- pure-combinatorial, so we are done "immediately"
 
-      -- --------------------------------------------------------
       when r5typeB_c => -- R5-type instruction B
-      -- --------------------------------------------------------
-
+      -- ----------------------------------------------------------------------
         -- No function/immediate bit-fields are available for this instruction type.
         -- Hence, there is just one operation that can be implemented.
         control.result <= rs1_i xor rs2_i xor rs3_i xor rs4_i; -- XOR-all
         control.done   <= '1'; -- set high to prevent permanent CPU stall
 
-      -- --------------------------------------------------------
       when others => -- undefined
-      -- --------------------------------------------------------
-
+      -- ----------------------------------------------------------------------
         control.result <= (others => '0');
         control.done   <= '0';
 

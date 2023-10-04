@@ -83,12 +83,14 @@ The NEORV32 project provides a set of pre-defined C libraries that allow an easy
 |=======================
 | C source file       | C header file          | Description
 | -                   | `neorv32.h`            | Main NEORV32 library file
-| -                   | `neorv32_buskeeper.h`  | <<_internal_bus_monitor_buskeeper>> HAL
 | `neorv32_cfs.c`     | `neorv32_cfs.h`        | <<_custom_functions_subsystem_cfs>> HAL
+| `neorv32_crc.c`     | `neorv32_crc.h`        | <<_cyclic_redundancy_check_crc>> HAL
 | `neorv32_cpu.c`     | `neorv32_cpu.h`        | <<_neorv32_central_processing_unit_cpu>> HAL
+| `neorv32_cpu_amo.c` | `neorv32_cpu_amo.h`    | Emulation functions for the read-modify-write  <<_a_isa_extension>> instructions
 |                     | `neorv32_cpu_csr.h`    | <<_control_and_status_registers_csrs>> definitions
 | `neorv32_cpu_cfu.c` | `neorv32_cpu_cfu.h`    | <<_custom_functions_unit_cfu>> HAL
 | -                   | `neorv32_dm.h`         | <<_debug_module_dm>> HAL
+| `neorv32_dma.c`     | `neorv32_dma.h`        | <<_direct_memory_access_controller_dma>> HAL
 | `neorv32_gpio.c`    | `neorv32_gpio.h`       | <<_general_purpose_input_and_output_port_gpio>> HAL
 | `neorv32_gptmr.c`   | `neorv32_gptmr.h`      | <<_general_purpose_timer_gptmr>> HAL
 | -                   | `neorv32_intrinsics.h` | Macros for intrinsics & custom instructions
@@ -98,6 +100,7 @@ The NEORV32 project provides a set of pre-defined C libraries that allow an easy
 | `neorv32_pwm.c`     | `neorv32_pwm.h`        | <<_pulse_width_modulation_controller_pwm>> HAL
 | `neorv32_rte.c`     | `neorv32_rte.h`        | <<_neorv32_runtime_environment>>
 | `neorv32_sdi.c`     | `neorv32_sdi.h`        | <<_serial_data_interface_controller_sdi>> HAL
+| `neorv32_slink.c`   | `neorv32_slink.h`      | <<_stream_link_interface_slink>> HAL
 | `neorv32_spi.c`     | `neorv32_spi.h`        | <<_serial_peripheral_interface_controller_spi>> HAL
 | -                   | `neorv32_sysinfo.h`    | <<_system_configuration_information_memory_sysinfo>> HAL
 | `neorv32_trng.c`    | `neorv32_trng.h`       | <<_true_random_number_generator_trng>> HAL
@@ -106,7 +109,7 @@ The NEORV32 project provides a set of pre-defined C libraries that allow an easy
 | `neorv32_wdt.c`     | `neorv32_wdt.h`        | <<_watchdog_timer_wdt>> HAL
 | `neorv32_xip.c`     | `neorv32_xip.h`        | <<_execute_in_place_module_xip>> HAL
 | `neorv32_xirq.c`    | `neorv32_xirq.h`       | <<_external_interrupt_controller_xirq>> HAL
-| `syscalls.c`        | -                      | Newlib "system calls"
+| `syscalls.c`        | -                      | Newlib "system calls" (stubs)
 | -                   | `legacy.h`             | Backwards compatibility wrappers and functions (do not use for new designs)
 |=======================
 
@@ -118,6 +121,8 @@ https://stnolting.github.io/neorv32/sw/files.html.
 .CMSIS System View Description File (SVD)
 [TIP]
 A CMSIS-SVD-compatible **System View Description (SVD)** file including all peripherals is available in `sw/svd`.
+Together with a third-party plugin the processor's SVD file can be imported right into GDB to allow comfortable
+debugging of peripheral/IO devices (see https://github.com/stnolting/neorv32/discussions/656).
 
 
 <<<
@@ -154,7 +159,7 @@ Make sure to add the bin folder of RISC-V GCC to your PATH variable.
  help       - show this text
  check      - check toolchain
  info       - show makefile/toolchain configuration
- gdb        - run GNU debugger
+ gdb        - run GNU debugging session
  asm        - compile and generate <main.asm> assembly listing file for manual debugging
  elf        - compile and generate <main.elf> ELF file
  bin        - compile and generate <neorv32_raw_exe.bin> RAW executable file (binary file, no header)
@@ -179,6 +184,7 @@ Make sure to add the bin folder of RISC-V GCC to your PATH variable.
  ASM_INC      - ASM include folder(s) [append only], default "-I ."
  RISCV_PREFIX - Toolchain prefix, default "riscv32-unknown-elf-"
  NEORV32_HOME - NEORV32 home folder, default "../../.."
+ GDB_ARGS     - GDB (connection) arguments: "-ex target extended-remote localhost:3333"
 ----
 
 
@@ -219,6 +225,8 @@ USER_FLAGS ?=
 USER_LIBS ?=
 # Relative or absolute path to the NEORV32 home folder
 NEORV32_HOME ?= ../../..
+# GDB arguments
+GDB_ARGS ?= -ex "target extended-remote localhost:3333"
 # *****************************************************************************
 ----
 
@@ -236,6 +244,7 @@ NEORV32_HOME ?= ../../..
 | `USER_FLAGS`   | Additional flags that will be forwarded to the compiler tools
 | `USER_LIBS`    | Additional libraries to include during linking (`*.a`)
 | `NEORV32_HOME` | Relative or absolute path to the NEORV32 project home folder; adapt this if the makefile/project is not in the project's default `sw/example` folder
+| `GDB_ARGS`     | Default GDB arguments when running the `gdb` target
 |=======================
 
 :sectnums:
@@ -256,6 +265,8 @@ The following default compiler flags are used for compiling an application. Thes
 | `-lgcc`               | Make sure we have no unresolved references to internal GCC library subroutines.
 | `-mno-fdiv`           | Use built-in software functions for floating-point divisions and square roots (since the according instructions are not supported yet).
 | `-g`                  | Include debugging information/symbols in ELF.
+| `-mstrict-align`      | Unaligned memory accesses cannot be resolved by the hardware and require emulation.
+| `-mbranch-cost=...`   | Branches cost a lot cycles on a multi-cycle architecture.
 |=======================
 
 :sectnums:
@@ -287,7 +298,7 @@ and packed into a final executable.
 After all the application sources have been compiled, they need to be _linked_.
 For this purpose the makefile uses the NEORV32-specific linker script `sw/common/neorv32.ld` for
 linking all object files that were generated during compilation. In general, the linker script defines
-three memory sections: `rom`, `ram` and `iodev`.
+two final memory sections: `rom` and `ram`.
 
 .Linker script - memory sections
 [cols="<2,<8"]
@@ -296,11 +307,7 @@ three memory sections: `rom`, `ram` and `iodev`.
 | Memory section  | Description
 | `ram`           | Data memory address space (processor-internal/external DMEM)
 | `rom`           | Instruction memory address space (processor-internal/external IMEM) _or_ internal bootloader ROM
-| `iodev`         | Processor-internal memory-mapped IO/peripheral devices address space
 |=======================
-
-[NOTE]
-The `iodev` section is entirely defined by the processor hardware layout and should not be modified at all.
 
 [NOTE]
 The `rom` section is automatically re-mapped to the processor-internal <<_bootloader_rom_bootrom>> when (re-)compiling the
@@ -316,24 +323,23 @@ while `LENGTH` defines its size in bytes. The attributes are configured indirect
 __neorv32_rom_size = DEFINED(__neorv32_rom_size) ? __neorv32_rom_size : 2048M;
 __neorv32_ram_size = DEFINED(__neorv32_ram_size) ? __neorv32_ram_size : 8K;
 
-/* Default section base addresses - do not change this unless the hardware-defined address space layout is changed! */
-__neorv32_rom_base = DEFINED(__neorv32_rom_base) ? __neorv32_rom_base : 0x00000000; /* = VHDL package's "ispace_base_c" */
-__neorv32_ram_base = DEFINED(__neorv32_ram_base) ? __neorv32_ram_base : 0x80000000; /* = VHDL package's "dspace_base_c" */
+/* Default section base addresses */
+__neorv32_rom_base = DEFINED(__neorv32_rom_base) ? __neorv32_rom_base : 0x00000000;
+__neorv32_ram_base = DEFINED(__neorv32_ram_base) ? __neorv32_ram_base : 0x80000000;
 ----
 
 The region size and base address configuration can be edited by the user - either by explicitly
 changing the default values in the linker script or by overriding them when invoking `make`:
  
-.Overriding default rom size configuration (setting 4096 bytes)
+.Overriding default `rom` size configuration (configuring 4096 bytes)
 [source, bash]
 ----
 $ make USER_FLAGS+="-Wl,--defsym,__neorv32_rom_size=4096" clean_all exe
 ----
 
 [IMPORTANT]
-`neorv32_rom_base` (= `ORIGIN` of the `ram` section) has to be always identical to the processor's `dspace_base_c` hardware
-configuration. Also, `neorv32_ram_base` (= `ORIGIN` of the `rom` section) has to be always identical to the processor's
-`ispace_base_c` hardware configuration.
+`__neorv32_rom_base` (= `ORIGIN` of the `ram` section) and `__neorv32_ram_base` (= `ORIGIN` of the `rom` section) have to
+be sync to the actual memory layout configuration of the processor (see section <<_address_space>>).
 
 [NOTE]
 The default configuration for the `rom` section assumes a maximum of 2GB _logical_ memory address space. This size does not
@@ -371,8 +377,8 @@ section and to clear the `.bss` section (faster!).
 :sectnums:
 ==== RAM Layout
 
-The default NEORV32 linker script uses all of the defined RAM (linker script memory section `ram`) to create four areas.
-Note that depending on the application some areas might not be existent at all.
+The default NEORV32 linker script uses all of the defined RAM (linker script memory section `ram`) to several sections.
+Note that depending on the application some sections might have zero size.
 
 .Default RAM Layout
 image::ram_layout.png[400]
@@ -489,7 +495,7 @@ The `crt0.S` start-up performs the following operations:
 . Call the application's `main` function (with no arguments: `argc` = `argv` = 0).
 . If `main` returns:
 ** Interrupts are disabled by clearing <<_mie>>.
-** `mains`'s return value is copied to the <<_mscratch>> CSR to allow inspection by the debugger.
+** The return value of `main` is copied to the <<_mscratch>> CSR to allow inspection by the debugger.
 ** Call all _destructors_ (if there are any).
 ** An optional <<_after_main_handler>> is called (if defined at all).
 ** The CPU enters sleep mode (executing the `wfi` instruction) in an endless loop.

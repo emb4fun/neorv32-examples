@@ -41,55 +41,26 @@ use neorv32.neorv32_package.all;
 
 entity neorv32_gpio is
   generic (
-    GPIO_NUM : natural -- number of GPIO input/output pairs (0..64)
+    GPIO_NUM : natural range 0 to 64 -- number of GPIO input/output pairs (0..64)
   );
   port (
-    -- host access --
-    clk_i  : in  std_ulogic; -- global clock line
-    rstn_i : in  std_ulogic; -- global reset line, low-active, async
-    addr_i : in  std_ulogic_vector(31 downto 0); -- address
-    rden_i : in  std_ulogic; -- read enable
-    wren_i : in  std_ulogic; -- write enable
-    data_i : in  std_ulogic_vector(31 downto 0); -- data in
-    data_o : out std_ulogic_vector(31 downto 0); -- data out
-    ack_o  : out std_ulogic; -- transfer acknowledge
-    -- parallel io --
-    gpio_o : out std_ulogic_vector(63 downto 0);
-    gpio_i : in  std_ulogic_vector(63 downto 0)
+    clk_i     : in  std_ulogic; -- global clock line
+    rstn_i    : in  std_ulogic; -- global reset line, low-active, async
+    bus_req_i : in  bus_req_t;  -- bus request
+    bus_rsp_o : out bus_rsp_t;  -- bus response
+    gpio_o    : out std_ulogic_vector(63 downto 0); -- parallel output
+    gpio_i    : in  std_ulogic_vector(63 downto 0)  -- parallel input
   );
 end neorv32_gpio;
 
 architecture neorv32_gpio_rtl of neorv32_gpio is
 
-  -- IO space: module base address --
-  constant hi_abb_c : natural := index_size_f(io_size_c)-1; -- high address boundary bit
-  constant lo_abb_c : natural := index_size_f(gpio_size_c); -- low address boundary bit
-
-  -- access control --
-  signal acc_en : std_ulogic; -- module access enable
-  signal addr   : std_ulogic_vector(31 downto 0); -- access address
-  signal wren   : std_ulogic; -- word write enable
-  signal rden   : std_ulogic; -- read enable
-
-  -- accessible regs --
   signal din, din_rd, dout, dout_rd : std_ulogic_vector(63 downto 0);
 
 begin
 
-  -- Sanity Checks --------------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  assert not ((GPIO_NUM < 0) or (GPIO_NUM > 64)) report
-    "NEORV32 PROCESSOR CONFIG ERROR! Invalid GPIO pin number configuration (0..64)." severity error;
-
-
   -- Host Access ----------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
-
-  -- access control --
-  acc_en <= '1' when (addr_i(hi_abb_c downto lo_abb_c) = gpio_base_c(hi_abb_c downto lo_abb_c)) else '0';
-  addr   <= gpio_base_c(31 downto lo_abb_c) & addr_i(lo_abb_c-1 downto 2) & "00"; -- word aligned
-  wren   <= acc_en and wren_i;
-  rden   <= acc_en and rden_i;
 
   -- write access --
   write_access: process(rstn_i, clk_i)
@@ -97,12 +68,12 @@ begin
     if (rstn_i = '0') then
       dout <= (others => '0');
     elsif rising_edge(clk_i) then
-      if (wren = '1') then
-        if (addr = gpio_out_lo_addr_c) then
-          dout(31 downto 00) <= data_i;
+      if (bus_req_i.we = '1') then
+        if (bus_req_i.addr(3 downto 2) = "10") then
+          dout(31 downto 00) <= bus_req_i.data;
         end if;
-        if (addr = gpio_out_hi_addr_c) then
-          dout(63 downto 32) <= data_i;
+        if (bus_req_i.addr(3 downto 2) = "11") then
+          dout(63 downto 32) <= bus_req_i.data;
         end if;
       end if;
     end if;
@@ -112,20 +83,21 @@ begin
   read_access: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      -- bus handshake --
-      ack_o <= wren or rden;
-      -- read data --
-      data_o <= (others => '0');
-      if (rden = '1') then
-        case addr(3 downto 2) is
-          when "00"   => data_o <= din_rd(31 downto 00);
-          when "01"   => data_o <= din_rd(63 downto 32);
-          when "10"   => data_o <= dout_rd(31 downto 00);
-          when others => data_o <= dout_rd(63 downto 32);
+      bus_rsp_o.ack  <= bus_req_i.we or bus_req_i.re;
+      bus_rsp_o.data <= (others => '0');
+      if (bus_req_i.re = '1') then
+        case bus_req_i.addr(3 downto 2) is
+          when "00"   => bus_rsp_o.data <= din_rd(31 downto 00);
+          when "01"   => bus_rsp_o.data <= din_rd(63 downto 32);
+          when "10"   => bus_rsp_o.data <= dout_rd(31 downto 00);
+          when others => bus_rsp_o.data <= dout_rd(63 downto 32);
         end case;
       end if;
     end if;
   end process read_access;
+
+  -- no access error possible --
+  bus_rsp_o.err <= '0';
 
 
   -- Physical Pin Mapping -------------------------------------------------------------------
@@ -141,9 +113,16 @@ begin
     end loop;
   end process pin_mapping;
 
-  -- IO --
+  -- output --
   gpio_o <= dout_rd;
-  din    <= gpio_i when rising_edge(clk_i); -- sample buffer to prevent metastability
+
+  -- synchronize input --
+  input_sync: process(clk_i)
+  begin
+    if rising_edge(clk_i) then
+      din <= gpio_i; -- to prevent metastability
+    end if;
+  end process input_sync;
 
 
 end neorv32_gpio_rtl;

@@ -1,5 +1,5 @@
 -- #################################################################################################
--- # << NEORV32 - CPU Co-Processor: Single-Prec. Floating Point Unit (RISC-V "Zfinx" Extension) >> #
+-- # << NEORV32 CPU - Co-Processor: Single-Prec. Floating Point Unit (RISC-V "Zfinx" Extension) >> #
 -- # ********************************************************************************************* #
 -- # The Zfinx floating-point extension uses the integer register file (x) for all FP operations.  #
 -- # See the official RISC-V specs (https://github.com/riscv/riscv-zfinx) for more information.    #
@@ -58,19 +58,23 @@ use neorv32.neorv32_package.all;
 entity neorv32_cpu_cp_fpu is
   port (
     -- global control --
-    clk_i    : in  std_ulogic; -- global clock, rising edge
-    rstn_i   : in  std_ulogic; -- global reset, low-active, async
-    ctrl_i   : in  ctrl_bus_t; -- main control bus
-    start_i  : in  std_ulogic; -- trigger operation
+    clk_i       : in  std_ulogic; -- global clock, rising edge
+    rstn_i      : in  std_ulogic; -- global reset, low-active, async
+    ctrl_i      : in  ctrl_bus_t; -- main control bus
+    start_i     : in  std_ulogic; -- trigger operation
+    -- CSR interface --
+    csr_we_i    : in  std_ulogic; -- global write enable
+    csr_addr_i  : in  std_ulogic_vector(11 downto 0); -- address
+    csr_wdata_i : in  std_ulogic_vector(XLEN-1 downto 0); -- write data
+    csr_rdata_o : out std_ulogic_vector(XLEN-1 downto 0); -- read data
     -- data input --
-    cmp_i    : in  std_ulogic_vector(1 downto 0); -- comparator status
-    rs1_i    : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 1
-    rs2_i    : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 2
-    rs3_i    : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 3
+    cmp_i       : in  std_ulogic_vector(1 downto 0); -- comparator status
+    rs1_i       : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 1
+    rs2_i       : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 2
+    rs3_i       : in  std_ulogic_vector(XLEN-1 downto 0); -- rf source 3
     -- result and status --
-    res_o    : out std_ulogic_vector(XLEN-1 downto 0); -- operation result
-    fflags_o : out std_ulogic_vector(4 downto 0); -- exception flags
-    valid_o  : out std_ulogic -- data output valid
+    res_o       : out std_ulogic_vector(XLEN-1 downto 0); -- operation result
+    valid_o     : out std_ulogic -- data output valid
   );
 end neorv32_cpu_cp_fpu;
 
@@ -86,16 +90,19 @@ architecture neorv32_cpu_cp_fpu_rtl of neorv32_cpu_cp_fpu is
   constant op_addsub_c : std_ulogic_vector(2 downto 0) := "110";
   constant op_mul_c    : std_ulogic_vector(2 downto 0) := "111";
 
+  -- FPU CSRs --
+  signal csr_frm    : std_ulogic_vector(2 downto 0); -- FPU rounding mode
+  signal csr_fflags : std_ulogic_vector(4 downto 0); -- FPU exception flags
+  signal fflags     : std_ulogic_vector(4 downto 0); -- exception flags
+
   -- float-to-integer unit --
   component neorv32_cpu_cp_fpu_f2i
-  generic (
-    XLEN       : in natural         -- data path width
-    );
   port (
     -- control --
     clk_i      : in  std_ulogic; -- global clock, rising edge
     rstn_i     : in  std_ulogic; -- global reset, low-active, async
     start_i    : in  std_ulogic; -- trigger operation
+    abort_i    : in  std_ulogic; -- abort current operation
     rmode_i    : in  std_ulogic_vector(02 downto 0); -- rounding mode
     funct_i    : in  std_ulogic; -- 0=signed, 1=unsigned
     -- input --
@@ -117,6 +124,7 @@ architecture neorv32_cpu_cp_fpu_rtl of neorv32_cpu_cp_fpu is
     clk_i      : in  std_ulogic; -- global clock, rising edge
     rstn_i     : in  std_ulogic; -- global reset, low-active, async
     start_i    : in  std_ulogic; -- trigger operation
+    abort_i    : in  std_ulogic; -- abort current operation
     rmode_i    : in  std_ulogic_vector(02 downto 0); -- rounding mode
     funct_i    : in  std_ulogic; -- operating mode (0=norm&round, 1=int-to-float)
     -- input --
@@ -225,9 +233,9 @@ architecture neorv32_cpu_cp_fpu_rtl of neorv32_cpu_cp_fpu is
     -- input comparison --
     exp_comp  : std_ulogic_vector(01 downto 0); -- equal & less
     small_exp : std_ulogic_vector(07 downto 0);
-    small_man : std_ulogic_vector(23 downto 0); -- mantissa + hiden one
+    small_man : std_ulogic_vector(23 downto 0); -- mantissa + hidden one
     large_exp : std_ulogic_vector(07 downto 0);
-    large_man : std_ulogic_vector(23 downto 0); -- mantissa + hiden one
+    large_man : std_ulogic_vector(23 downto 0); -- mantissa + hidden one
     -- smaller mantissa alginment --
     man_sreg  : std_ulogic_vector(23 downto 0); -- mantissa + hidden one
     man_g_ext : std_ulogic;
@@ -236,8 +244,8 @@ architecture neorv32_cpu_cp_fpu_rtl of neorv32_cpu_cp_fpu is
     exp_cnt   : std_ulogic_vector(08 downto 0);
     -- adder/subtractor stage --
     man_comp  : std_ulogic;
-    man_s     : std_ulogic_vector(26 downto 0); -- mantissa + hiden one + GRS
-    man_l     : std_ulogic_vector(26 downto 0); -- mantissa + hiden one + GRS
+    man_s     : std_ulogic_vector(26 downto 0); -- mantissa + hidden one + GRS
+    man_l     : std_ulogic_vector(26 downto 0); -- mantissa + hidden one + GRS
     add_stage : std_ulogic_vector(27 downto 0); -- adder result incl. overflow
     -- result --
     res_sign  : std_ulogic;
@@ -271,6 +279,52 @@ begin
 -- ****************************************************************************************************************************
 -- Control
 -- ****************************************************************************************************************************
+
+  -- CSR Access -----------------------------------------------------------------------------
+  -- -------------------------------------------------------------------------------------------
+
+  -- write access --
+  csr_write: process(rstn_i, clk_i)
+  begin
+    if (rstn_i = '0') then
+      csr_frm    <= (others => '0');
+      csr_fflags <= (others => '0');
+    elsif rising_edge(clk_i) then
+      if (csr_we_i = '1') then
+        if (csr_addr_i(11 downto 2) = csr_fflags_c(11 downto 2)) then
+          -- exception flags --
+          if (csr_addr_i(1 downto 0) = csr_fflags_c(1 downto 0)) then
+            csr_fflags <= csr_wdata_i(4 downto 0);
+          end if;
+          -- rounding mode --
+          if (csr_addr_i(1 downto 0) = csr_frm_c(1 downto 0)) then
+            csr_frm <= csr_wdata_i(2 downto 0);
+          end if;
+          -- control/status (frm & fflags) --
+          if (csr_addr_i(1 downto 0) = csr_fcsr_c(1 downto 0)) then
+            csr_frm    <= csr_wdata_i(7 downto 5);
+            csr_fflags <= csr_wdata_i(4 downto 0);
+          end if;
+        end if;
+      else -- auto-update
+        csr_fflags <= csr_fflags or fflags;
+      end if;
+    end if;
+  end process csr_write;
+
+
+  -- read access --
+  csr_read: process(csr_addr_i, csr_fflags, csr_frm)
+  begin
+    csr_rdata_o <= (others => '0'); -- default
+    case csr_addr_i is
+      when csr_fflags_c => csr_rdata_o(4 downto 0) <= csr_fflags; -- exception flags
+      when csr_frm_c    => csr_rdata_o(2 downto 0) <= csr_frm; -- rounding mode
+      when csr_fcsr_c   => csr_rdata_o(7 downto 0) <= csr_frm & csr_fflags; -- control/status (frm & fflags)
+      when others       => NULL;
+    end case;
+  end process csr_read;
+
 
   -- Instruction Decoding -------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
@@ -380,7 +434,7 @@ begin
           -- rounding mode --
           -- TODO / FIXME "round to nearest, ties to max magnitude" (0b100) is not supported yet
           if (ctrl_i.ir_funct3 = "111") then
-            fpu_operands.frm <= '0' & ctrl_i.alu_frm(1 downto 0);
+            fpu_operands.frm <= '0' & csr_frm(1 downto 0);
           else
             fpu_operands.frm <= '0' & ctrl_i.ir_funct3(1 downto 0);
           end if;
@@ -549,14 +603,12 @@ begin
   -- Convert: Float to [unsigned] Integer (FCVT.S.W) ----------------------------------------
   -- -------------------------------------------------------------------------------------------
   neorv32_cpu_cp_fpu_f2i_inst: neorv32_cpu_cp_fpu_f2i
-  generic map (
-    XLEN          => XLEN         -- data path width
-    )
   port map (
     -- control --
     clk_i      => clk_i,                          -- global clock, rising edge
     rstn_i     => rstn_i,                         -- global reset, low-active, async
     start_i    => fu_conv_f2i.start,              -- trigger operation
+    abort_i    => ctrl_i.cpu_trap,                -- abort current operation
     rmode_i    => fpu_operands.frm,               -- rounding mode
     funct_i    => ctrl_i.ir_funct12(0),           -- 0=signed, 1=unsigned
     -- input --
@@ -1088,6 +1140,7 @@ begin
     clk_i      => clk_i,                -- global clock, rising edge
     rstn_i     => rstn_i,               -- global reset, low-active, async
     start_i    => normalizer.start,     -- trigger operation
+    abort_i    => ctrl_i.cpu_trap,      -- abort current operation
     rmode_i    => fpu_operands.frm,     -- rounding mode
     funct_i    => normalizer.mode,      -- operation mode
     -- input --
@@ -1108,7 +1161,7 @@ begin
 -- FPU Core - Result
 -- ****************************************************************************************************************************
 
-  -- Result Output to CPU Pipeline ----------------------------------------------------------
+  -- Output Result to CPU Pipeline ----------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
   output_gate: process(clk_i)
   begin
@@ -1116,27 +1169,27 @@ begin
       if (ctrl_engine.valid = '1') then
         case funct_ff is
           when op_class_c =>
-            res_o    <= fu_classify.result;
-            fflags_o <= fu_classify.flags;
+            res_o  <= fu_classify.result;
+            fflags <= fu_classify.flags;
           when op_comp_c =>
-            res_o    <= fu_compare.result;
-            fflags_o <= fu_compare.flags;
+            res_o  <= fu_compare.result;
+            fflags <= fu_compare.flags;
           when op_f2i_c =>
-            res_o    <= fu_conv_f2i.result;
-            fflags_o <= fu_conv_f2i.flags;
+            res_o  <= fu_conv_f2i.result;
+            fflags <= fu_conv_f2i.flags;
           when op_sgnj_c =>
-            res_o    <= fu_sign_inject.result;
-            fflags_o <= fu_sign_inject.flags;
+            res_o  <= fu_sign_inject.result;
+            fflags <= fu_sign_inject.flags;
           when op_minmax_c =>
-            res_o    <= fu_min_max.result;
-            fflags_o <= fu_min_max.flags;
+            res_o  <= fu_min_max.result;
+            fflags <= fu_min_max.flags;
           when others => -- op_mul_c, op_addsub_c, op_i2f_c, ...
-            res_o    <= normalizer.result;
-            fflags_o <= normalizer.flags_out;
+            res_o  <= normalizer.result;
+            fflags <= normalizer.flags_out;
         end case;
       else
-        res_o    <= (others => '0');
-        fflags_o <= (others => '0');
+        res_o  <= (others => '0');
+        fflags <= (others => '0');
       end if;
     end if;
   end process output_gate;
@@ -1199,6 +1252,7 @@ entity neorv32_cpu_cp_fpu_normalizer is
     clk_i      : in  std_ulogic; -- global clock, rising edge
     rstn_i     : in  std_ulogic; -- global reset, low-active, async
     start_i    : in  std_ulogic; -- trigger operation
+    abort_i    : in  std_ulogic; -- abort current operation
     rmode_i    : in  std_ulogic_vector(02 downto 0); -- rounding mode
     funct_i    : in  std_ulogic; -- operating mode (0=norm&round, 1=int-to-float)
     -- input --
@@ -1363,7 +1417,7 @@ begin
           -- Set the ctrl.cnt to 0 to force the resulting exponent to be 0
           -- Do not change sreg.lower as that is already all 0s
           -- Do not change sign as that should be the right sign from the add/sub
-          elsif (unsigned(mantissa_i(47 downto 0)) = 0) then 
+          elsif (unsigned(mantissa_i(47 downto 0)) = 0) then
             ctrl.cnt <= (others => '0');
             ctrl.state <= S_FINALIZE;
           else
@@ -1430,11 +1484,11 @@ begin
           elsif (ctrl.cnt(7 downto 0) = x"FF") then -- infinity
             ctrl.flags(fp_exc_of_c) <= '1';
           end if;
-          ctrl.state  <= S_FINALIZE;
+          ctrl.state <= S_FINALIZE;
 
         when S_FINALIZE => -- result finalization
         -- ------------------------------------------------------------
-          -- generate result word (the ORDER of checks is imporatant here!) --
+          -- generate result word (the ORDER of checks is important here!) --
           if (ctrl.class(fp_class_snan_c) = '1') or (ctrl.class(fp_class_qnan_c) = '1') then -- sNaN / qNaN
             ctrl.res_sgn <= fp_single_qnan_c(31);
             ctrl.res_exp <= fp_single_qnan_c(30 downto 23);
@@ -1467,6 +1521,11 @@ begin
           ctrl.state <= S_IDLE;
 
       end case;
+
+      -- override: abort operation --
+      if (abort_i = '1') then
+        ctrl.state <= S_IDLE;
+      end if;
     end if;
   end process ctrl_engine;
 
@@ -1589,14 +1648,12 @@ library neorv32;
 use neorv32.neorv32_package.all;
 
 entity neorv32_cpu_cp_fpu_f2i is
-  generic (
-    XLEN                      : natural -- data path width
-    );
   port (
     -- control --
     clk_i      : in  std_ulogic; -- global clock, rising edge
     rstn_i     : in  std_ulogic; -- global reset, low-active, async
     start_i    : in  std_ulogic; -- trigger operation
+    abort_i    : in  std_ulogic; -- abort current operation
     rmode_i    : in  std_ulogic_vector(02 downto 0); -- rounding mode
     funct_i    : in  std_ulogic; -- 0=signed, 1=unsigned
     -- input --
@@ -1786,6 +1843,11 @@ begin
           ctrl.state <= S_IDLE;
 
       end case;
+
+      -- override: abort operation --
+      if (abort_i = '1') then
+        ctrl.state <= S_IDLE;
+      end if;
     end if;
   end process ctrl_engine;
 

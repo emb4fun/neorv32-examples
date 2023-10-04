@@ -44,31 +44,15 @@ use neorv32.neorv32_package.all;
 
 entity neorv32_mtime is
   port (
-    -- host access --
-    clk_i  : in  std_ulogic; -- global clock line
-    rstn_i : in  std_ulogic; -- global reset line, low-active, async
-    addr_i : in  std_ulogic_vector(31 downto 0); -- address
-    rden_i : in  std_ulogic; -- read enable
-    wren_i : in  std_ulogic; -- write enable
-    data_i : in  std_ulogic_vector(31 downto 0); -- data in
-    data_o : out std_ulogic_vector(31 downto 0); -- data out
-    ack_o  : out std_ulogic; -- transfer acknowledge
-    -- interrupt --
-    irq_o  : out std_ulogic  -- interrupt request
+    clk_i     : in  std_ulogic; -- global clock line
+    rstn_i    : in  std_ulogic; -- global reset line, low-active, async
+    bus_req_i : in  bus_req_t;  -- bus request
+    bus_rsp_o : out bus_rsp_t;  -- bus response
+    irq_o     : out std_ulogic  -- interrupt request
   );
 end neorv32_mtime;
 
 architecture neorv32_mtime_rtl of neorv32_mtime is
-
-  -- IO space: module base address --
-  constant hi_abb_c : natural := index_size_f(io_size_c)-1; -- high address boundary bit
-  constant lo_abb_c : natural := index_size_f(mtime_size_c); -- low address boundary bit
-
-  -- access control --
-  signal acc_en : std_ulogic; -- module access enable
-  signal addr   : std_ulogic_vector(31 downto 0); -- access address
-  signal wren   : std_ulogic; -- module access enable
-  signal rden   : std_ulogic; -- read enable
 
   -- time write access buffer --
   signal mtime_lo_we : std_ulogic;
@@ -90,14 +74,6 @@ architecture neorv32_mtime_rtl of neorv32_mtime is
 
 begin
 
-  -- Access Control -------------------------------------------------------------------------
-  -- -------------------------------------------------------------------------------------------
-  acc_en <= '1' when (addr_i(hi_abb_c downto lo_abb_c) = mtime_base_c(hi_abb_c downto lo_abb_c)) else '0';
-  addr   <= mtime_base_c(31 downto lo_abb_c) & addr_i(lo_abb_c-1 downto 2) & "00"; -- word aligned
-  wren   <= acc_en and wren_i;
-  rden   <= acc_en and rden_i;
-
-
   -- Write Access ---------------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
   write_access: process(rstn_i, clk_i)
@@ -112,29 +88,29 @@ begin
       mtime_hi      <= (others => '0');
     elsif rising_edge(clk_i) then
       -- mtimecmp --
-      if (wren = '1') then
-        if (addr = mtime_cmp_lo_addr_c) then
-          mtimecmp_lo <= data_i;
+      if (bus_req_i.we = '1') then
+        if (bus_req_i.addr(3 downto 2) = "10") then
+          mtimecmp_lo <= bus_req_i.data;
         end if;
-        if (addr = mtime_cmp_hi_addr_c) then
-          mtimecmp_hi <= data_i;
+        if (bus_req_i.addr(3 downto 2) = "11") then
+          mtimecmp_hi <= bus_req_i.data;
         end if;
       end if;
 
       -- mtime write access buffer --
       mtime_lo_we <= '0';
-      if (wren = '1') and (addr = mtime_time_lo_addr_c) then
+      if (bus_req_i.we = '1') and (bus_req_i.addr(3 downto 2) = "00") then
         mtime_lo_we <= '1';
       end if;
       --
       mtime_hi_we <= '0';
-      if (wren = '1') and (addr = mtime_time_hi_addr_c) then
+      if (bus_req_i.we = '1') and (bus_req_i.addr(3 downto 2) = "01") then
         mtime_hi_we <= '1';
       end if;
 
       -- mtime low --
       if (mtime_lo_we = '1') then -- write access
-        mtime_lo <= data_i;
+        mtime_lo <= bus_req_i.data;
       else -- auto increment
         mtime_lo <= mtime_lo_nxt(31 downto 0);
       end if;
@@ -142,7 +118,7 @@ begin
 
       -- mtime high --
       if (mtime_hi_we = '1') then -- write access
-        mtime_hi <= data_i;
+        mtime_hi <= bus_req_i.data;
       else -- auto increment (if mtime.low overflows)
         mtime_hi <= std_ulogic_vector(unsigned(mtime_hi) + unsigned(mtime_lo_ovfl));
       end if;
@@ -158,18 +134,21 @@ begin
   read_access: process(clk_i)
   begin
     if rising_edge(clk_i) then
-      ack_o  <= rden or wren; -- bus handshake
-      data_o <= (others => '0'); -- default
-      if (rden = '1') then
-        case addr(3 downto 2) is
-          when "00"   => data_o <= mtime_lo;
-          when "01"   => data_o <= mtime_hi;
-          when "10"   => data_o <= mtimecmp_lo;
-          when others => data_o <= mtimecmp_hi;
+      bus_rsp_o.ack  <= bus_req_i.re or bus_req_i.we; -- bus handshake
+      bus_rsp_o.data <= (others => '0'); -- default
+      if (bus_req_i.re = '1') then
+        case bus_req_i.addr(3 downto 2) is
+          when "00"   => bus_rsp_o.data <= mtime_lo;
+          when "01"   => bus_rsp_o.data <= mtime_hi;
+          when "10"   => bus_rsp_o.data <= mtimecmp_lo;
+          when others => bus_rsp_o.data <= mtimecmp_hi;
         end case;
       end if;
     end if;
   end process read_access;
+
+  -- no access error possible --
+  bus_rsp_o.err <= '0';
 
 
   -- Comparator -----------------------------------------------------------------------------

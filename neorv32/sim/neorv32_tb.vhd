@@ -66,14 +66,14 @@ architecture neorv32_tb_rtl of neorv32_tb is
   -- User Configuration ---------------------------------------------------------------------
   -- -------------------------------------------------------------------------------------------
   -- general --
-  constant ext_imem_c              : boolean := true; -- false: use and boot from proc-internal IMEM, true: use and boot from external (initialized) simulated IMEM (ext. mem A)
-  constant ext_dmem_c              : boolean := true; -- false: use proc-internal DMEM, true: use external simulated DMEM (ext. mem B)
-  constant imem_size_c             : natural := 16*1024; -- size in bytes of processor-internal IMEM / external mem A
+  constant int_imem_c              : boolean := false; -- true: use proc-internal IMEM, false: use external simulated IMEM (ext. mem A)
+  constant int_dmem_c              : boolean := false; -- true: use proc-internal DMEM, false: use external simulated DMEM (ext. mem B)
+  constant imem_size_c             : natural := 32*1024; -- size in bytes of processor-internal IMEM / external mem A
   constant dmem_size_c             : natural := 8*1024; -- size in bytes of processor-internal DMEM / external mem B
   constant f_clock_c               : natural := 100000000; -- main clock in Hz
   constant baud0_rate_c            : natural := 19200; -- simulation UART0 (primary UART) baud rate
   constant baud1_rate_c            : natural := 19200; -- simulation UART1 (secondary UART) baud rate
-  constant icache_en_c             : boolean := true; -- implement i-cache
+  constant icache_en_c             : boolean := false; -- implement i-cache
   constant icache_block_size_c     : natural := 64; -- i-cache block size in bytes
   -- simulated external Wishbone memory A (can be used as external IMEM) --
   constant ext_mem_a_base_addr_c   : std_ulogic_vector(31 downto 0) := x"00000000"; -- wishbone memory base address (external IMEM base)
@@ -92,8 +92,6 @@ architecture neorv32_tb_rtl of neorv32_tb is
   -- -------------------------------------------------------------------------------------------
 
   -- internals - hands off! --
-  constant int_imem_c       : boolean := not ext_imem_c;
-  constant int_dmem_c       : boolean := not ext_dmem_c;
   constant uart0_baud_val_c : real := real(f_clock_c) / real(baud0_rate_c);
   constant uart1_baud_val_c : real := real(f_clock_c) / real(baud1_rate_c);
   constant t_clock_c        : time := (1 sec) / f_clock_c;
@@ -123,6 +121,11 @@ architecture neorv32_tb_rtl of neorv32_tb is
 
   -- irq --
   signal msi_ring, mei_ring : std_ulogic;
+
+  -- SLINK echo --
+  signal slink_dat : std_ulogic_vector(31 downto 0);
+  signal slink_val : std_ulogic;
+  signal slink_rdy : std_ulogic;
 
   -- Wishbone bus --
   type wishbone_t is record
@@ -180,7 +183,7 @@ begin
     if ci_mode then
       -- No need to send the full expectation in one big chunk
       check_uart(net, uart1_rx_handle, nul & nul);
-      check_uart(net, uart1_rx_handle, "0/49" & cr & lf);
+      check_uart(net, uart1_rx_handle, "0/56" & cr & lf);
     end if;
 
     -- Wait until all expected data has been received
@@ -217,11 +220,11 @@ begin
     CLOCK_FREQUENCY              => f_clock_c,     -- clock frequency of clk_i in Hz
     HART_ID                      => x"00000000",   -- hardware thread ID
     VENDOR_ID                    => x"00000000",   -- vendor's JEDEC ID
-    CUSTOM_ID                    => x"12345678",   -- custom user-defined ID
     INT_BOOTLOADER_EN            => false,         -- boot configuration: true = boot explicit bootloader; false = boot from int/ext (I)MEM
     -- On-Chip Debugger (OCD) --
     ON_CHIP_DEBUGGER_EN          => true,          -- implement on-chip debugger
     -- RISC-V CPU Extensions --
+    CPU_EXTENSION_RISCV_A        => true,          -- implement atomic memory operations extension?
     CPU_EXTENSION_RISCV_B        => true,          -- implement bit-manipulation extension?
     CPU_EXTENSION_RISCV_C        => true,          -- implement compressed extension?
     CPU_EXTENSION_RISCV_E        => false,         -- implement embedded RF extension?
@@ -229,7 +232,6 @@ begin
     CPU_EXTENSION_RISCV_U        => true,          -- implement user mode extension?
     CPU_EXTENSION_RISCV_Zfinx    => true,          -- implement 32-bit floating-point extension (using INT reg!)
     CPU_EXTENSION_RISCV_Zicntr   => true,          -- implement base counters?
-    CPU_EXTENSION_RISCV_Zicond   => true,          -- implement conditional operations extension?
     CPU_EXTENSION_RISCV_Zihpm    => true,          -- implement hardware performance monitors?
     CPU_EXTENSION_RISCV_Zifencei => true,          -- implement instruction stream sync.?
     CPU_EXTENSION_RISCV_Zmmul    => false,         -- implement multiply-only M sub-extension?
@@ -237,13 +239,14 @@ begin
     -- Extension Options --
     FAST_MUL_EN                  => false,         -- use DSPs for M extension's multiplier
     FAST_SHIFT_EN                => false,         -- use barrel shifter for shift operations
-    CPU_IPB_ENTRIES              => 1,             -- entries is instruction prefetch buffer, has to be a power of 2, min 1
     -- Physical Memory Protection (PMP) --
     PMP_NUM_REGIONS              => 5,             -- number of regions (0..16)
     PMP_MIN_GRANULARITY          => 4,             -- minimal region granularity in bytes, has to be a power of 2, min 4 bytes
     -- Hardware Performance Monitors (HPM) --
     HPM_NUM_CNTS                 => 12,            -- number of implemented HPM counters (0..29)
     HPM_CNT_WIDTH                => 40,            -- total size of HPM counters (0..64)
+    -- Atomic Memory Access - Reservation Set Granularity --
+    AMO_RVS_GRANULARITY          => 4,             -- size in bytes, has to be a power of 2, min 4
     -- Internal Instruction memory --
     MEM_INT_IMEM_EN              => int_imem_c ,   -- implement processor-internal instruction memory
     MEM_INT_IMEM_SIZE            => imem_size_c,   -- size of processor-internal instruction memory in bytes
@@ -251,21 +254,16 @@ begin
     MEM_INT_DMEM_EN              => int_dmem_c,    -- implement processor-internal data memory
     MEM_INT_DMEM_SIZE            => dmem_size_c,   -- size of processor-internal data memory in bytes
     -- Internal Cache memory --
-    ICACHE_EN                    => icache_en_c,   -- implement instruction cache
-    ICACHE_NUM_BLOCKS            => 8,             -- i-cache: number of blocks (min 2), has to be a power of 2
-    ICACHE_BLOCK_SIZE            => icache_block_size_c, -- i-cache: block size in bytes (min 4), has to be a power of 2
-    ICACHE_ASSOCIATIVITY         => 2,             -- i-cache: associativity / number of sets (1=direct_mapped), has to be a power of 2
+    ICACHE_EN                    => false,         -- implement instruction cache
     -- Internal Data Cache (dCACHE) --
-    DCACHE_EN                    => true,          -- implement data cache
-    DCACHE_NUM_BLOCKS            => 8,             -- d-cache: number of blocks (min 1), has to be a power of 2
-    DCACHE_BLOCK_SIZE            => 64,            -- d-cache: block size in bytes (min 4), has to be a power of 2
+    DCACHE_EN                    => false,         -- implement data cache
     -- External memory interface --
     MEM_EXT_EN                   => true,          -- implement external memory bus interface?
     MEM_EXT_TIMEOUT              => 256,           -- cycles after a pending bus access auto-terminates (0 = disabled)
     MEM_EXT_PIPE_MODE            => false,         -- protocol: false=classic/standard wishbone mode, true=pipelined wishbone mode
     MEM_EXT_BIG_ENDIAN           => false,         -- byte order: true=big-endian, false=little-endian
-    MEM_EXT_ASYNC_RX             => false,         -- use register buffer for RX data when false
-    MEM_EXT_ASYNC_TX             => false,         -- use register buffer for TX data when false
+    MEM_EXT_ASYNC_RX             => true,          -- use register buffer for RX data when false
+    MEM_EXT_ASYNC_TX             => true,          -- use register buffer for TX data when false
     -- External Interrupts Controller (XIRQ) --
     XIRQ_NUM_CH                  => 32,            -- number of external IRQ channels (0..32)
     XIRQ_TRIGGER_TYPE            => (others => '1'), -- trigger type: 0=level, 1=edge
@@ -296,7 +294,12 @@ begin
     IO_NEOLED_TX_FIFO            => 8,             -- NEOLED TX FIFO depth, 1..32k, has to be a power of two
     IO_GPTMR_EN                  => true,          -- implement general purpose timer (GPTMR)?
     IO_XIP_EN                    => true,          -- implement execute in place module (XIP)?
-    IO_ONEWIRE_EN                => true           -- implement 1-wire interface (ONEWIRE)?
+    IO_ONEWIRE_EN                => true,          -- implement 1-wire interface (ONEWIRE)?
+    IO_DMA_EN                    => true,          -- implement direct memory access controller (DMA)?
+    IO_SLINK_EN                  => true,          -- implement stream link interface (SLINK)?
+    IO_SLINK_RX_FIFO             => 2,             -- RX fifo depth, has to be a power of two, min 1
+    IO_SLINK_TX_FIFO             => 2,             -- TX fifo depth, has to be a power of two, min 1
+    IO_CRC_EN                    => true           -- implement cyclic redundancy check unit (CRC)?
   )
   port map (
     -- Global control --
@@ -319,6 +322,13 @@ begin
     wb_cyc_o       => wb_cpu.cyc,      -- valid cycle
     wb_ack_i       => wb_cpu.ack,      -- transfer acknowledge
     wb_err_i       => wb_cpu.err,      -- transfer error
+    -- Stream Link Interface (available if IO_SLINK_EN = true) --
+    slink_rx_dat_i => slink_dat,       -- RX input data
+    slink_rx_val_i => slink_val,       -- RX valid input
+    slink_rx_rdy_o => slink_rdy,       -- RX ready to receive
+    slink_tx_dat_o => slink_dat,       -- TX output data
+    slink_tx_val_o => slink_val,       -- TX valid output
+    slink_tx_rdy_i => slink_rdy,       -- TX ready to send
     -- Advanced memory control signals (available if MEM_EXT_EN = true) --
     fence_o        => open,            -- indicates an executed FENCE operation
     fencei_o       => open,            -- indicates an executed FENCEI operation
@@ -455,7 +465,7 @@ begin
   -- Wishbone Memory A (simulated external IMEM) --------------------------------------------
   -- -------------------------------------------------------------------------------------------
   generate_ext_imem:
-  if ext_imem_c generate
+  if (int_imem_c = false) generate
     ext_mem_a_access: process(clk_gen)
       variable ext_ram_a : mem32_t(0 to ext_mem_a_size_c/4-1) := mem32_init_f(application_init_image, ext_mem_a_size_c/4); -- initialized, used to simulate external IMEM
     begin
@@ -496,7 +506,7 @@ begin
   end generate;
 
   generate_ext_imem_false:
-  if (ext_imem_c = false) generate
+  if (int_imem_c = true) generate
     wb_mem_a.rdata <= (others => '0');
     wb_mem_a.ack   <= '0';
     wb_mem_a.err   <= '0';
@@ -505,43 +515,53 @@ begin
 
   -- Wishbone Memory B (simulated external DMEM) --------------------------------------------
   -- -------------------------------------------------------------------------------------------
-  ext_mem_b_access: process(clk_gen)
-    variable ext_ram_b : mem32_t(0 to ext_mem_b_size_c/4-1) := (others => (others => '0')); -- zero, used to simulate external DMEM
-  begin
-    if rising_edge(clk_gen) then
-      -- control --
-      ext_mem_b.ack(0) <= wb_mem_b.cyc and wb_mem_b.stb; -- wishbone acknowledge
+  generate_ext_dmem:
+  if (int_dmem_c = false) generate
+    ext_mem_b_access: process(clk_gen)
+      variable ext_ram_b : mem32_t(0 to ext_mem_b_size_c/4-1) := (others => (others => '0')); -- zero, used to simulate external DMEM
+    begin
+      if rising_edge(clk_gen) then
+        -- control --
+        ext_mem_b.ack(0) <= wb_mem_b.cyc and wb_mem_b.stb; -- wishbone acknowledge
 
-      -- write access --
-      if ((wb_mem_b.cyc and wb_mem_b.stb and wb_mem_b.we) = '1') then -- valid write access
-        for i in 0 to 3 loop
-          if (wb_mem_b.sel(i) = '1') then
-            ext_ram_b(to_integer(unsigned(wb_mem_b.addr(index_size_f(ext_mem_b_size_c/4)+1 downto 2))))(7+i*8 downto 0+i*8) := wb_mem_b.wdata(7+i*8 downto 0+i*8);
-          end if;
-        end loop; -- i
-      end if;
+        -- write access --
+        if ((wb_mem_b.cyc and wb_mem_b.stb and wb_mem_b.we) = '1') then -- valid write access
+          for i in 0 to 3 loop
+            if (wb_mem_b.sel(i) = '1') then
+              ext_ram_b(to_integer(unsigned(wb_mem_b.addr(index_size_f(ext_mem_b_size_c/4)+1 downto 2))))(7+i*8 downto 0+i*8) := wb_mem_b.wdata(7+i*8 downto 0+i*8);
+            end if;
+          end loop; -- i
+        end if;
 
-      -- read access --
-      ext_mem_b.rdata(0) <= ext_ram_b(to_integer(unsigned(wb_mem_b.addr(index_size_f(ext_mem_b_size_c/4)+1 downto 2)))); -- word aligned
-      -- virtual read and ack latency --
-      if (ext_mem_b_latency_c > 1) then
-        for i in 1 to ext_mem_b_latency_c-1 loop
-          ext_mem_b.rdata(i) <= ext_mem_b.rdata(i-1);
-          ext_mem_b.ack(i)   <= ext_mem_b.ack(i-1) and wb_mem_b.cyc;
-        end loop;
-      end if;
+        -- read access --
+        ext_mem_b.rdata(0) <= ext_ram_b(to_integer(unsigned(wb_mem_b.addr(index_size_f(ext_mem_b_size_c/4)+1 downto 2)))); -- word aligned
+        -- virtual read and ack latency --
+        if (ext_mem_b_latency_c > 1) then
+          for i in 1 to ext_mem_b_latency_c-1 loop
+            ext_mem_b.rdata(i) <= ext_mem_b.rdata(i-1);
+            ext_mem_b.ack(i)   <= ext_mem_b.ack(i-1) and wb_mem_b.cyc;
+          end loop;
+        end if;
 
-      -- bus output register --
-      wb_mem_b.err <= '0';
-      if (ext_mem_b.ack(ext_mem_b_latency_c-1) = '1') and (wb_mem_b.cyc = '1') then
-        wb_mem_b.rdata <= ext_mem_b.rdata(ext_mem_b_latency_c-1);
-        wb_mem_b.ack   <= '1';
-      else
-        wb_mem_b.rdata <= (others => '0');
-        wb_mem_b.ack   <= '0';
+        -- bus output register --
+        wb_mem_b.err <= '0';
+        if (ext_mem_b.ack(ext_mem_b_latency_c-1) = '1') and (wb_mem_b.cyc = '1') then
+          wb_mem_b.rdata <= ext_mem_b.rdata(ext_mem_b_latency_c-1);
+          wb_mem_b.ack   <= '1';
+        else
+          wb_mem_b.rdata <= (others => '0');
+          wb_mem_b.ack   <= '0';
+        end if;
       end if;
-    end if;
-  end process ext_mem_b_access;
+    end process ext_mem_b_access;
+  end generate;
+
+  generate_ext_dmem_false:
+  if (int_dmem_c = true) generate
+    wb_mem_b.rdata <= (others => '0');
+    wb_mem_b.ack   <= '0';
+    wb_mem_b.err   <= '0';
+  end generate;
 
 
   -- Wishbone Memory C (simulated external IO) ----------------------------------------------

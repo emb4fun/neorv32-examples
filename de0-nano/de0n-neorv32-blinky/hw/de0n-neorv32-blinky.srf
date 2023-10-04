@@ -2,6 +2,12 @@
 { "" "" "" "Verilog HDL or VHDL warning at neorv32_top.vhd(361): object \"xip_page\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Quartus II" 0 -1 0 ""}
 { "" "" "" "VHDL Assertion Statement at neorv32_cpu.vhd(194): assertion is false - report \"NEORV32 CPU CONFIG WARNING! Overriding <CPU_IPB_ENTRIES> configuration (setting =2) because C ISA extension is enabled.\" (WARNING)" {  } {  } 0 10651 "" 0 0 "Quartus II" 0 -1 0 ""}
 { "" "" "" "Verilog HDL or VHDL warning at neorv32_cpu_control.vhd(1066): conditional expression evaluates to a constant" {  } {  } 0 10037 "" 0 0 "Quartus II" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at neorv32_top.vhd(275): object \"rst_cause\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Quartus II" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at neorv32_top.vhd(289): object \"cpu_sleep\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Quartus II" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at neorv32_top.vhd(313): object \"xip_req\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Quartus II" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at neorv32_top.vhd(313): object \"xbus_req\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Quartus II" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at neorv32_cpu.vhd(132): object \"fetch_pc\" assigned a value but never read" {  } {  } 0 10036 "" 0 0 "Quartus II" 0 -1 0 ""}
+{ "" "" "" "Verilog HDL or VHDL warning at neorv32_cpu_control.vhd(1030): conditional expression evaluates to a constant" {  } {  } 0 10037 "" 0 0 "Quartus II" 0 -1 0 ""}
 { "" "" "" "*" {  } {  } 0 20028 "" 0 0 "Quartus II" 0 -1 0 ""}
 { "" "" "" "*" {  } {  } 0 292013 "" 0 0 "Quartus II" 0 -1 0 ""}
 { "" "" "" "*" {  } {  } 0 169177 "" 0 0 "Quartus II" 0 -1 0 ""}

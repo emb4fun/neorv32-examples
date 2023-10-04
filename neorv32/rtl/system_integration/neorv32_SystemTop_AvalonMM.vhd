@@ -48,7 +48,6 @@ entity neorv32_top_avalonmm is
     CLOCK_FREQUENCY              : natural;           -- clock frequency of clk_i in Hz
     HART_ID                      : std_ulogic_vector(31 downto 0) := x"00000000"; -- hardware thread ID
     VENDOR_ID                    : std_ulogic_vector(31 downto 0) := x"00000000"; -- vendor's JEDEC ID
-    CUSTOM_ID                    : std_ulogic_vector(31 downto 0) := x"00000000"; -- custom user-defined ID
     INT_BOOTLOADER_EN            : boolean := false;  -- boot configuration: true = boot explicit bootloader; false = boot from int/ext (I)MEM
 
     -- On-Chip Debugger (OCD) --
@@ -70,7 +69,6 @@ entity neorv32_top_avalonmm is
     -- Extension Options --
     FAST_MUL_EN                  : boolean := false;  -- use DSPs for M extension's multiplier
     FAST_SHIFT_EN                : boolean := false;  -- use barrel shifter for shift operations
-    CPU_IPB_ENTRIES              : natural := 1;      -- entries is instruction prefetch buffer, has to be a power of 1, min 1
 
     -- Physical Memory Protection (PMP) --
     PMP_NUM_REGIONS              : natural := 0;      -- number of regions (0..16)
@@ -235,7 +233,6 @@ begin
     CLOCK_FREQUENCY => CLOCK_FREQUENCY,
     HART_ID => HART_ID,
     VENDOR_ID => VENDOR_ID,
-    CUSTOM_ID => CUSTOM_ID,
 
     -- On-Chip Debugger (OCD) --
     ON_CHIP_DEBUGGER_EN => ON_CHIP_DEBUGGER_EN,
@@ -256,7 +253,6 @@ begin
     -- Extension Options --
     FAST_MUL_EN => FAST_MUL_EN,
     FAST_SHIFT_EN => FAST_SHIFT_EN,
-    CPU_IPB_ENTRIES => CPU_IPB_ENTRIES,
 
     -- Physical Memory Protection (PMP) --
     PMP_NUM_REGIONS => PMP_NUM_REGIONS,

@@ -1,8 +1,5 @@
 // #################################################################################################
-// # << NEORV32 - Intrinsics + Emulation Functions for the RISC-V 'Zicond'  ISA Extension >>       #
-// # ********************************************************************************************* #
-// # The intrinsics provided by this library allow to use the conditional operations unit of the   #
-// # RISC-V Zicond CPU extension without the need for support by the compiler.                     #
+// # << NEORV32: neorv32_dma.c - Direct Memory Access Controller (DMA) HW Driver >>                #
 // # ********************************************************************************************* #
 // # BSD 3-Clause License                                                                          #
 // #                                                                                               #
@@ -37,89 +34,109 @@
 
 
 /**********************************************************************//**
- * @file zicond_test/zicond_intrinsics.h
- * @author Stephan Nolting
- * @brief "Intrinsic" library for the NEORV32 Zicond ISA extension.
- * Also provides emulation functions for all intrinsics (functionality re-built in pure software).
+ * @file neorv32_wdt.c
+ * @brief Direct Memory Access Controller (DMA) HW driver source file.
  *
- * @warning This library is just a temporary fall-back until the B extension is supported by the
- * upstream RISC-V GCC port.
+ * @note These functions should only be used if the DMA controller was synthesized (IO_DMA_EN = true).
  **************************************************************************/
- 
-#ifndef zicond_intrinsics_h
-#define zicond_intrinsics_h
 
-
-// ################################################################################################
-// Intrinsics
-// ################################################################################################
+#include "neorv32.h"
+#include "neorv32_dma.h"
 
 
 /**********************************************************************//**
- * Intrinsic: Conditional zero if condition is zero [intrinsic].
+ * Check if DMA controller was synthesized.
  *
- * @param[in] rs1 Source operand.
- * @param[in] rs2 Condition operand.
- * @return Result.
+ * @return 0 if DMA was not synthesized, 1 if DMA is available.
  **************************************************************************/
-inline uint32_t __attribute__ ((always_inline)) riscv_intrinsic_czero_eqz(uint32_t rs1, uint32_t rs2) {
+int neorv32_dma_available(void) {
 
-  return CUSTOM_INSTR_R3_TYPE(0b0000111, rs2, rs1, 0b101, 0b0110011);
-}
-
-
-/**********************************************************************//**
- * Intrinsic: Conditional zero if condition is nonzero [intrinsic].
- *
- * @param[in] rs1 Source operand.
- * @param[in] rs2 Condition operand.
- * @return Result.
- **************************************************************************/
-inline uint32_t __attribute__ ((always_inline)) riscv_intrinsic_czero_nez(uint32_t rs1, uint32_t rs2) {
-
-  return CUSTOM_INSTR_R3_TYPE(0b0000111, rs2, rs1, 0b111, 0b0110011);
-}
-
-
-// ################################################################################################
-// Emulation functions
-// ################################################################################################
-
-
-/**********************************************************************//**
- * Intrinsic: Conditional zero if condition is zero [emulation].
- *
- * @param[in] rs1 Source operand.
- * @param[in] rs2 Condition operand.
- * @return Result.
- **************************************************************************/
-uint32_t riscv_emulate_czero_eqz(uint32_t rs1, uint32_t rs2) {
-
-  if (rs2 == 0) {
-    return 0;
+  if (NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_DMA)) {
+    return 1;
   }
   else {
-    return rs1;
+    return 0;
   }
 }
 
 
 /**********************************************************************//**
- * Intrinsic: Conditional zero if condition is nonzero [emulation].
- *
- * @param[in] rs1 Source operand.
- * @param[in] rs2 Condition operand.
- * @return Result.
+ * Enable DMA.
  **************************************************************************/
-uint32_t riscv_emulate_czero_nez(uint32_t rs1, uint32_t rs2) {
+void neorv32_dma_enable(void) {
 
-  if (rs2 != 0) {
-    return 0;
-  }
-  else {
-    return rs1;
-  }
+  NEORV32_DMA->CTRL |= (uint32_t)(1 << DMA_CTRL_EN);
 }
 
 
-#endif // zicond_intrinsics_h
+/**********************************************************************//**
+ * Disable DMA. This will reset the DMA and will also terminate the current transfer.
+ **************************************************************************/
+void neorv32_dma_disable(void) {
+
+  NEORV32_DMA->CTRL &= ~((uint32_t)(1 << DMA_CTRL_EN));
+}
+
+
+/**********************************************************************//**
+ * Trigger manual DMA transfer.
+ *
+ * @param[in] base_src Source base address (has to be aligned to source data type!).
+ * @param[in] base_dst Destination base address (has to be aligned to destination data type!).
+ * @param[in] num Number of elements to transfer (24-bit).
+ * @param[in] config Transfer type configuration/commands.
+ **************************************************************************/
+void neorv32_dma_transfer(uint32_t base_src, uint32_t base_dst, uint32_t num, uint32_t config) {
+
+  NEORV32_DMA->CTRL &= ~((uint32_t)(1 << DMA_CTRL_AUTO)); // manual transfer trigger
+  NEORV32_DMA->SRC_BASE = base_src;
+  NEORV32_DMA->DST_BASE = base_dst;
+  NEORV32_DMA->TTYPE    = (num & 0x00ffffffUL) | (config & 0xff000000UL); // trigger transfer
+}
+
+
+/**********************************************************************//**
+ * Configure automatic DMA transfer (triggered by CPU FIRQ).
+ *
+ * @param[in] base_src Source base address (has to be aligned to source data type!).
+ * @param[in] base_dst Destination base address (has to be aligned to destination data type!).
+ * @param[in] num Number of elements to transfer (24-bit).
+ * @param[in] config Transfer type configuration/commands.
+ * @param[in] firq_mask FIRQ trigger mask (#NEORV32_CSR_MIP_enum).
+ **************************************************************************/
+void neorv32_dma_transfer_auto(uint32_t base_src, uint32_t base_dst, uint32_t num, uint32_t config, uint32_t firq_mask) {
+
+  uint32_t tmp = NEORV32_DMA->CTRL;
+  tmp |= (uint32_t)(1 << DMA_CTRL_AUTO); // automatic transfer trigger
+  tmp &= 0x0000ffffUL; // clear current FIRQ mask
+  tmp |= firq_mask & 0xffff0000UL; // set new FIRQ mask
+  NEORV32_DMA->CTRL = tmp;
+
+  NEORV32_DMA->SRC_BASE = base_src;
+  NEORV32_DMA->DST_BASE = base_dst;
+  NEORV32_DMA->TTYPE    = (num & 0x00ffffffUL) | (config & 0xff000000UL);
+}
+
+
+/**********************************************************************//**
+ * Get DMA status.
+ *
+ * @return Current DMA status (#NEORV32_DMA_STATUS_enum)
+ **************************************************************************/
+int neorv32_dma_status(void) {
+
+  uint32_t tmp = NEORV32_DMA->CTRL;
+
+  if (tmp & (1 << DMA_CTRL_ERROR_WR)) {
+    return DMA_STATUS_ERR_WR; // error during write access
+  }
+  else if (tmp & (1 << DMA_CTRL_ERROR_RD)) {
+    return DMA_STATUS_ERR_RD; // error during read access
+  }
+  else if (tmp & (1 << DMA_CTRL_BUSY)) {
+    return DMA_STATUS_BUSY; // transfer in progress
+  }
+  else {
+    return DMA_STATUS_IDLE; // idle
+  }
+}
