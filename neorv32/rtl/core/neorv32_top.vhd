@@ -499,7 +499,8 @@ begin
       CPU_EXTENSION_RISCV_Zmmul    => CPU_EXTENSION_RISCV_Zmmul,
       CPU_EXTENSION_RISCV_Zxcfu    => CPU_EXTENSION_RISCV_Zxcfu,
       CPU_EXTENSION_RISCV_Sdext    => ON_CHIP_DEBUGGER_EN,
-      CPU_EXTENSION_RISCV_Sdtrig   => ON_CHIP_DEBUGGER_EN,
+--  @@MF    CPU_EXTENSION_RISCV_Sdtrig   => ON_CHIP_DEBUGGER_EN,
+      CPU_EXTENSION_RISCV_Sdtrig   => false,
       -- Tuning Options --
       FAST_MUL_EN                  => FAST_MUL_EN,
       FAST_SHIFT_EN                => FAST_SHIFT_EN,
