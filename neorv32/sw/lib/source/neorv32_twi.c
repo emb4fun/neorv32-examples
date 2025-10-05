@@ -1,62 +1,27 @@
-// #################################################################################################
-// # << NEORV32: neorv32_twi.c - Two-Wire Interface Controller (TWI) HW Driver >>                  #
-// # ********************************************************************************************* #
-// # BSD 3-Clause License                                                                          #
-// #                                                                                               #
-// # Copyright (c) 2022, Stephan Nolting. All rights reserved.                                     #
-// #                                                                                               #
-// # Redistribution and use in source and binary forms, with or without modification, are          #
-// # permitted provided that the following conditions are met:                                     #
-// #                                                                                               #
-// # 1. Redistributions of source code must retain the above copyright notice, this list of        #
-// #    conditions and the following disclaimer.                                                   #
-// #                                                                                               #
-// # 2. Redistributions in binary form must reproduce the above copyright notice, this list of     #
-// #    conditions and the following disclaimer in the documentation and/or other materials        #
-// #    provided with the distribution.                                                            #
-// #                                                                                               #
-// # 3. Neither the name of the copyright holder nor the names of its contributors may be used to  #
-// #    endorse or promote products derived from this software without specific prior written      #
-// #    permission.                                                                                #
-// #                                                                                               #
-// # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS   #
-// # OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF               #
-// # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE    #
-// # COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,     #
-// # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE #
-// # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED    #
-// # AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING     #
-// # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED  #
-// # OF THE POSSIBILITY OF SUCH DAMAGE.                                                            #
-// # ********************************************************************************************* #
-// # The NEORV32 Processor - https://github.com/stnolting/neorv32              (c) Stephan Nolting #
-// #################################################################################################
+// ================================================================================ //
+// The NEORV32 RISC-V Processor - https://github.com/stnolting/neorv32              //
+// Copyright (c) NEORV32 contributors.                                              //
+// Copyright (c) 2020 - 2025 Stephan Nolting. All rights reserved.                  //
+// Licensed under the BSD-3-Clause license, see LICENSE for details.                //
+// SPDX-License-Identifier: BSD-3-Clause                                            //
+// ================================================================================ //
 
-
-/**********************************************************************//**
+/**
  * @file neorv32_twi.c
  * @brief Two-Wire Interface Controller (TWI) HW driver source file.
- *
- * @note These functions should only be used if the TWI unit was synthesized (IO_TWI_EN = true).
- **************************************************************************/
+ */
 
-#include "neorv32.h"
-#include "neorv32_twi.h"
+#include <neorv32.h>
 
 
 /**********************************************************************//**
  * Check if TWI unit was synthesized.
  *
- * @return 0 if TWI was not synthesized, 1 if TWI is available.
+ * @return 0 if TWI was not synthesized, non-zero if TWI is available.
  **************************************************************************/
 int neorv32_twi_available(void) {
 
-  if (NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_TWI)) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
+  return (int)(NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_TWI));
 }
 
 
@@ -65,18 +30,30 @@ int neorv32_twi_available(void) {
  *
  * @param[in] prsc Clock prescaler select (0..7). See #NEORV32_CLOCK_PRSC_enum.
  * @param[in] cdiv Clock divider (0..15).
- * @param[in] csen Allow clock stretching when 1.
+ * @param[in] clkstr Enable (allow) clock stretching.
  **************************************************************************/
-void neorv32_twi_setup(int prsc, int cdiv, int csen) {
+void neorv32_twi_setup(int prsc, int cdiv, int clkstr) {
 
   NEORV32_TWI->CTRL = 0; // reset
 
   uint32_t ctrl = 0;
-  ctrl |= ((uint32_t)(          1) << TWI_CTRL_EN);
-  ctrl |= ((uint32_t)(prsc & 0x07) << TWI_CTRL_PRSC0);
-  ctrl |= ((uint32_t)(cdiv & 0x0F) << TWI_CTRL_CDIV0);
-  ctrl |= ((uint32_t)(csen & 0x01) << TWI_CTRL_CSEN);
+  ctrl |= ((uint32_t)(         0x1) << TWI_CTRL_EN);
+  ctrl |= ((uint32_t)(prsc   & 0x7) << TWI_CTRL_PRSC0);
+  ctrl |= ((uint32_t)(cdiv   & 0xf) << TWI_CTRL_CDIV0);
+  ctrl |= ((uint32_t)(clkstr & 0x1) << TWI_CTRL_CLKSTR);
   NEORV32_TWI->CTRL = ctrl;
+}
+
+
+/**********************************************************************//**
+ * Get TWI FIFO depth.
+ *
+ * @return FIFO depth (number of entries), zero if no FIFO implemented
+ **************************************************************************/
+int neorv32_twi_get_fifo_depth(void) {
+
+  uint32_t tmp = (NEORV32_TWI->CTRL >> TWI_CTRL_FIFO_LSB) & 0x0f;
+  return (int)(1 << tmp);
 }
 
 
@@ -99,25 +76,39 @@ void neorv32_twi_enable(void) {
 
 
 /**********************************************************************//**
- * Activate sending ACKs by controller (MACK).
+ * Get current state of SCL bus line.
+ *
+ * @return 1 if SCL is high, 0 if SCL is low.
  **************************************************************************/
-void neorv32_twi_mack_enable(void) {
+int neorv32_twi_sense_scl(void) {
 
-  NEORV32_TWI->CTRL |= ((uint32_t)(1 << TWI_CTRL_MACK));
+  if (NEORV32_TWI->CTRL & (1 << TWI_CTRL_SENSE_SCL)) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
 }
 
 
 /**********************************************************************//**
- * Deactivate sending ACKs by controller (MACK).
+ * Get current state of SDA bus line.
+ *
+ * @return 1 if SDA is high, 0 if SDA is low.
  **************************************************************************/
-void neorv32_twi_mack_disable(void) {
+int neorv32_twi_sense_sda(void) {
 
-  NEORV32_TWI->CTRL &= ~((uint32_t)(1 << TWI_CTRL_MACK));
+  if (NEORV32_TWI->CTRL & (1 << TWI_CTRL_SENSE_SDA)) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
 }
 
 
 /**********************************************************************//**
- * Check if TWI is busy.
+ * Check if TWI controller is busy (TWI bus engine busy or TX FIFO not empty).
  *
  * @return 0 if idle, 1 if busy
  **************************************************************************/
@@ -133,52 +124,38 @@ int neorv32_twi_busy(void) {
 
 
  /**********************************************************************//**
- * Generate START condition and send first byte (address including R/W bit).
+ * Get received data + ACK/NACH from RX FIFO.
  *
- * @note Blocking function.
- *
- * @param[in] a Data byte including 7-bit address and R/W-bit (lsb).
- * @return 0: ACK received, 1: NACK received.
+ * @param[in,out] data Pointer for returned data (uint8_t).
+ * @return RX FIFO access status (-1 = no data available, 0 = ACK received, 1 = NACK received).
  **************************************************************************/
-int neorv32_twi_start_trans(uint8_t a) {
+int neorv32_twi_get(uint8_t *data) {
 
-  neorv32_twi_generate_start(); // generate START condition
+  if ((NEORV32_TWI->CTRL & (1<<TWI_CTRL_RX_AVAIL)) == 0) { // no data available
+    return -1;
+  }
 
-  return neorv32_twi_trans(a); // transfer address
+  uint32_t tmp = NEORV32_TWI->DCMD;
+  *data = (uint8_t)tmp;
+  return (int)((tmp >> TWI_DCMD_ACK) & 1);
 }
 
 
  /**********************************************************************//**
- * Send data byte and also receive data byte (can be read via neorv32_twi_get_data()).
+ * TWI transfer: send data byte and also receive data byte.
  *
  * @note Blocking function.
  *
- * @param[in] d Data byte to be send.
+ * @param[in,out] data Pointer for TX/RX data (uint8_t).
+ * @param[in] mack Generate ACK by host controller when set.
  * @return 0: ACK received, 1: NACK received.
  **************************************************************************/
-int neorv32_twi_trans(uint8_t d) {
+int neorv32_twi_transfer(uint8_t *data, int mack) {
 
-  NEORV32_TWI->DATA = (uint32_t)d; // send data
+  while (NEORV32_TWI->CTRL & (1<<TWI_CTRL_TX_FULL)); // wait for free TX entry
+  neorv32_twi_send_nonblocking(*data, mack); // send address + R/W (+ host ACK)
   while (NEORV32_TWI->CTRL & (1 << TWI_CTRL_BUSY)); // wait until idle again
-
-  // check for ACK/NACK
-  if (NEORV32_TWI->CTRL & (1 << TWI_CTRL_ACK)) {
-    return 0; // ACK received
-  }
-  else {
-    return 1; // NACK received
-  }
-}
-
-
- /**********************************************************************//**
- * Get received data from last transmission.
- *
- * @return 0: Last received data byte.
- **************************************************************************/
-uint8_t neorv32_twi_get_data(void) {
-
-  return (uint8_t)NEORV32_TWI->DATA; // get RX data from previous transmission
+  return neorv32_twi_get(data);
 }
 
 
@@ -189,7 +166,8 @@ uint8_t neorv32_twi_get_data(void) {
  **************************************************************************/
 void neorv32_twi_generate_stop(void) {
 
-  NEORV32_TWI->CTRL |= (uint32_t)(1 << TWI_CTRL_STOP); // generate STOP condition
+  while (NEORV32_TWI->CTRL & (1<<TWI_CTRL_TX_FULL)); // wait for free TX entry
+  neorv32_twi_generate_stop_nonblocking();
   while (NEORV32_TWI->CTRL & (1 << TWI_CTRL_BUSY)); // wait until idle again
 }
 
@@ -201,22 +179,46 @@ void neorv32_twi_generate_stop(void) {
  **************************************************************************/
 void neorv32_twi_generate_start(void) {
 
-  NEORV32_TWI->CTRL |= (1 << TWI_CTRL_START); // generate START condition
+  while (NEORV32_TWI->CTRL & (1<<TWI_CTRL_TX_FULL)); // wait for free TX entry
+  neorv32_twi_generate_start_nonblocking();
   while (NEORV32_TWI->CTRL & (1 << TWI_CTRL_BUSY)); // wait until idle again
 }
 
 
  /**********************************************************************//**
- * Check if the TWI bus is currently claimed by any controller.
+ * Send data byte (RX can be read via neorv32_twi_get()).
  *
- * @return 0: 0 if bus is not claimed, 1 if bus is claimed.
+ * @note Non-blocking function; does not check the TX FIFO.
+ *
+ * @param[in] data Data byte to be send.
+ * @param[in] mack Generate ACK by host controller when set.
  **************************************************************************/
-int neorv32_twi_bus_claimed(void) {
+void neorv32_twi_send_nonblocking(uint8_t data, int mack) {
 
-  if (NEORV32_TWI->CTRL & (1 << TWI_CTRL_CLAIMED)) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
+  uint32_t cmd = (uint32_t)data;
+  cmd |= (uint32_t)((mack & 1) << TWI_DCMD_ACK);
+  cmd |= (uint32_t)(TWI_CMD_RTX << TWI_DCMD_CMD_LO);
+  NEORV32_TWI->DCMD = cmd;
+}
+
+
+ /**********************************************************************//**
+ * Generate STOP condition.
+ *
+ * @note Non-blocking function; does not check the TX FIFO.
+ **************************************************************************/
+void neorv32_twi_generate_stop_nonblocking(void) {
+
+  NEORV32_TWI->DCMD = (uint32_t)(TWI_CMD_STOP << TWI_DCMD_CMD_LO);
+}
+
+
+ /**********************************************************************//**
+ * Generate START (or REPEATED-START) condition.
+ *
+ * @note Non-blocking function; does not check the TX FIFO.
+ **************************************************************************/
+void neorv32_twi_generate_start_nonblocking(void) {
+
+  NEORV32_TWI->DCMD = (uint32_t)(TWI_CMD_START << TWI_DCMD_CMD_LO);
 }

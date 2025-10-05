@@ -5,7 +5,7 @@
 | Board   | [Terasic DE0-CV](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&CategoryNo=167&No=921) |
 | :------ | :---------- |
 | FPGA    | Cyclone V `5CEBA4F23C7N ` |
-| Quartus | 15.0.2      |
+| Quartus | 20.1.1      |
 | clk_i   | 100 MHz     |
 
 #### Memory Address Map:
@@ -14,7 +14,7 @@
 | :------ | :------------ | :---------- | :----------- | :---------- |
 | IMEM    | 0x00000000    | 0x0001FFFF  | 128K         | TCM On-chip RAM |
 | DMEM    | 0x80000000    | 0x8000FFFF  | 64K          | TCM On-chip RAM |
-| QSYS    | 0x90000000    | 0x9FFFFFFF  | 256MB        | Accessible via the Wishbone to Avalon Master |
+| QSYS    | 0x90000000    | 0x9FFFFFFF  | 256MB   | Accessible via the Wishbone to Avalon Master |
 
 #### Qsys Address Map:
 
@@ -37,4 +37,4 @@ A memory test was also implemented. The terminal output looks like:
 
 ## Embedded Studio for RISC-V
 
-A description of how to use Embedded Studio for RISC-V can be find [here](https://www.emb4fun.de/archive/ses4rv/index.html).
+A description of how to use Embedded Studio for RISC-V can be find [here](https://www.emb4fun.de/riscv/ses4rv/index.html).

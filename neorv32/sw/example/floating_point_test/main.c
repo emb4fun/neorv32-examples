@@ -1,41 +1,15 @@
-// #################################################################################################
-// # << NEORV32 - RISC-V Single-Precision Floating-Point 'Zfinx' Extension Verification Program >> #
-// # ********************************************************************************************* #
-// # BSD 3-Clause License                                                                          #
-// #                                                                                               #
-// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
-// #                                                                                               #
-// # Redistribution and use in source and binary forms, with or without modification, are          #
-// # permitted provided that the following conditions are met:                                     #
-// #                                                                                               #
-// # 1. Redistributions of source code must retain the above copyright notice, this list of        #
-// #    conditions and the following disclaimer.                                                   #
-// #                                                                                               #
-// # 2. Redistributions in binary form must reproduce the above copyright notice, this list of     #
-// #    conditions and the following disclaimer in the documentation and/or other materials        #
-// #    provided with the distribution.                                                            #
-// #                                                                                               #
-// # 3. Neither the name of the copyright holder nor the names of its contributors may be used to  #
-// #    endorse or promote products derived from this software without specific prior written      #
-// #    permission.                                                                                #
-// #                                                                                               #
-// # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS   #
-// # OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF               #
-// # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE    #
-// # COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,     #
-// # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE #
-// # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED    #
-// # AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING     #
-// # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED  #
-// # OF THE POSSIBILITY OF SUCH DAMAGE.                                                            #
-// # ********************************************************************************************* #
-// # The NEORV32 Processor - https://github.com/stnolting/neorv32              (c) Stephan Nolting #
-// #################################################################################################
+// ================================================================================ //
+// The NEORV32 RISC-V Processor - https://github.com/stnolting/neorv32              //
+// Copyright (c) NEORV32 contributors.                                              //
+// Copyright (c) 2020 - 2025 Stephan Nolting. All rights reserved.                  //
+// Licensed under the BSD-3-Clause license, see LICENSE for details.                //
+// SPDX-License-Identifier: BSD-3-Clause                                            //
+// ================================================================================ //
 
 
 /**********************************************************************//**
  * @file floating_point_test/main.c
- * @author Stephan Nolting
+ * @author Stephan Nolting, Mikael Mortensen
  * @brief Verification program for the NEORV32 'Zfinx' extension (floating-point in x registers) using
  * pseudo-random data as input; compares results from hardware against pure-sw reference functions.
  **************************************************************************/
@@ -69,6 +43,8 @@
 #define SILENT_MODE        (1)
 //** Run FPU CSR tests when != 0 */
 #define RUN_CSR_TESTS      (1)
+//** Run FPU exception tests when != 0 */
+#define RUN_EXC_TESTS      (1)
 //** Run conversion tests when != 0 */
 #define RUN_CONV_TESTS     (1)
 //** Run add/sub tests when != 0 */
@@ -83,23 +59,35 @@
 #define RUN_SGNINJ_TESTS   (1)
 //** Run classify tests when != 0 */
 #define RUN_CLASSIFY_TESTS (1)
+//** Run corner case tests when != 0 */
+#define RUN_CORNER_TESTS   (1)
 //** Run unsupported instructions tests when != 0 */
 #define RUN_UNAVAIL_TESTS  (1)
 //** Run average instruction execution time test when != 0 */
-#define RUN_TIMING_TESTS   (0)
+#define RUN_TIMING_TESTS   (1)
+/**@}*/
+
+
+/**********************************************************************//**
+ * @name Special floating-point encodings
+ **************************************************************************/
+/**@{*/
+#define FLOAT32_SNAN ( (uint32_t)(0x7fa00000U) )
+#define FLOAT32_PMIN ( (uint32_t)(0x00800000U) )
+#define FLOAT32_PMAX ( (uint32_t)(0x7f7fffffU) )
 /**@}*/
 
 
 // Prototypes
 uint32_t get_test_vector(void);
-uint32_t xorshift32(void);
 uint32_t verify_result(uint32_t num, uint32_t opa, uint32_t opb, uint32_t ref, uint32_t res);
 void print_report(uint32_t num_err);
 
 
 /**********************************************************************//**
- * Main function; test all available operations of the NEORV32 'Zfinx' extensions using bit floating-point
- * hardware intrinsics and software-only reference functions (emulation).
+ * Main function; test all available operations of the NEORV32 'Zfinx'
+ * extensions using floating-point hardware intrinsics and software-only
+ * reference functions.
  *
  * @note This program requires the Zfinx CPU extension.
  *
@@ -122,8 +110,6 @@ int main() {
   // capture all exceptions and give debug info via UART
   neorv32_rte_setup();
 
-  // check available hardware extensions and compare with compiler flags
-  neorv32_rte_check_isa(0); // silent = 0 -> show message if isa mismatch
 
   // check if Zfinx extension is implemented at all
   if ((neorv32_cpu_csr_read(CSR_MXISA) & (1<<CSR_MXISA_ZFINX)) == 0) {
@@ -132,19 +118,8 @@ int main() {
   }
 
 
-// Disable compilation by default
-#ifndef RUN_CHECK
-  #warning Program HAS NOT BEEN COMPILED! Use >>make USER_FLAGS+=-DRUN_CHECK clean_all exe<< to compile it.
-
-  // inform the user if you are actually executing this
-  neorv32_uart0_printf("ERROR! Program has not been compiled. Use >>make USER_FLAGS+=-DRUN_CHECK clean_all exe<< to compile it.\n");
-
-  return 1;
-#endif
-
-
   // intro
-  neorv32_uart0_printf("<<< Zfinx extension test >>>\n");
+  neorv32_uart0_printf("NEORV32 Zfinx ISA extension (FPU) test\n\n");
 #if (SILENT_MODE != 0)
   neorv32_uart0_printf("SILENT_MODE enabled (only showing actual errors)\n");
 #endif
@@ -196,14 +171,50 @@ int main() {
   test_cnt++;
 #endif
 
-  // clear FPU status/control word
-  neorv32_cpu_csr_write(CSR_FCSR, 0);
+
+// ----------------------------------------------------------------------------
+// CSR Exception Tests
+// ----------------------------------------------------------------------------
+#if (RUN_EXC_TESTS != 0)
+  neorv32_uart0_printf("\n#%u: FFLAGS.NX (inexact)... <WORK IN PROGRESS>\n", test_cnt);
+  test_cnt++;
+
+  neorv32_uart0_printf("\n#%u: FFLAGS.DZ (divide by zero)... DIVISON NOT SUPPORTED!\n", test_cnt);
+  test_cnt++;
+
+  neorv32_uart0_printf("\n#%u: FFLAGS.UF (underflow)... <WORK IN PROGRESS>\n", test_cnt);
+  test_cnt++;
+
+  neorv32_uart0_printf("\n#%u: FFLAGS.OV (overflow)... <WORK IN PROGRESS>\n", test_cnt);
+  test_cnt++;
+
+  neorv32_uart0_printf("\n#%u: FFLAGS.NV (invalid operation)...\n", test_cnt);
+  err_cnt = 0;
+  for (i=0;i<(uint32_t)NUM_TEST_CASES; i++) {
+    neorv32_cpu_csr_write(CSR_FFLAGS, 0);
+    opa.binary_value = FLOAT32_SNAN; // signaling NAN
+    opb.binary_value = get_test_vector(); // any number
+    res_hw.float_value = riscv_intrinsic_fadds(opa.float_value, opb.float_value); // discard result
+
+    res_sw.binary_value = (uint32_t)(1 << CSR_FFLAGS_NV);
+    res_hw.binary_value = neorv32_cpu_csr_read(CSR_FFLAGS) & (1 << CSR_FFLAGS_NV);
+    err_cnt += verify_result(i, opa.binary_value, opb.binary_value, res_sw.binary_value, res_hw.binary_value);
+  }
+  print_report(err_cnt);
+  err_cnt_total += err_cnt;
+  test_cnt++;
+#endif
+
+
+// ----------------------------------------------------------------------------
+// Initialize FPU hardware
+// ----------------------------------------------------------------------------
+  neorv32_cpu_csr_write(CSR_FCSR, 0); // clear exception flags and set "round to nearest"
 
 
 // ----------------------------------------------------------------------------
 // Conversion Tests
 // ----------------------------------------------------------------------------
-
 #if (RUN_CONV_TESTS != 0)
   neorv32_uart0_printf("\n#%u: FCVT.S.WU (unsigned integer to float)...\n", test_cnt);
   err_cnt = 0;
@@ -258,7 +269,6 @@ int main() {
 // ----------------------------------------------------------------------------
 // Add/Sub Tests
 // ----------------------------------------------------------------------------
-
 #if (RUN_ADDSUB_TESTS != 0)
   neorv32_uart0_printf("\n#%u: FADD.S (addition)...\n", test_cnt);
   err_cnt = 0;
@@ -291,7 +301,6 @@ int main() {
 // ----------------------------------------------------------------------------
 // Multiplication Tests
 // ----------------------------------------------------------------------------
-
 #if (RUN_MUL_TESTS != 0)
   neorv32_uart0_printf("\n#%u: FMUL.S (multiplication)...\n", test_cnt);
   err_cnt = 0;
@@ -311,7 +320,6 @@ int main() {
 // ----------------------------------------------------------------------------
 // Min/Max Tests
 // ----------------------------------------------------------------------------
-
 #if (RUN_MINMAX_TESTS != 0)
   neorv32_uart0_printf("\n#%u: FMIN.S (select minimum)...\n", test_cnt);
   err_cnt = 0;
@@ -344,7 +352,6 @@ int main() {
 // ----------------------------------------------------------------------------
 // Comparison Tests
 // ----------------------------------------------------------------------------
-
 #if (RUN_COMPARE_TESTS != 0)
   neorv32_uart0_printf("\n#%u: FEQ.S (compare if equal)...\n", test_cnt);
   err_cnt = 0;
@@ -390,7 +397,6 @@ int main() {
 // ----------------------------------------------------------------------------
 // Sign-Injection Tests
 // ----------------------------------------------------------------------------
-
 #if (RUN_SGNINJ_TESTS != 0)
   neorv32_uart0_printf("\n#%u: FSGNJ.S (sign-injection)...\n", test_cnt);
   err_cnt = 0;
@@ -436,7 +442,6 @@ int main() {
 // ----------------------------------------------------------------------------
 // Classify Tests
 // ----------------------------------------------------------------------------
-
 #if (RUN_CLASSIFY_TESTS != 0)
   neorv32_uart0_printf("\n#%u: FCLASS.S (classify)...\n", test_cnt);
   err_cnt = 0;
@@ -453,9 +458,143 @@ int main() {
 
 
 // ----------------------------------------------------------------------------
+// corner case tests by author Mikael Mortensen
+// ----------------------------------------------------------------------------
+#if (RUN_CORNER_TESTS != 0)
+
+  // ********************************************
+  // Floating point add/sub Instruction Time-out test
+  // ********************************************
+  neorv32_uart0_printf("\n#%u: Corner-case FADD.S...\n", test_cnt);
+
+  // Test the addition of 1.0 + (-1.0) to trigger long normalizer times
+  // +1.0 e0
+  // 0_011 1111 1_000 0000 0000 0000 0000 0000
+  // sign 0, exp 0111_1111/0x7F, mant 0 => 1.0
+  // 0x3F80_0000
+
+  neorv32_cpu_csr_write(CSR_MCAUSE, 0);
+  opa.binary_value = 0x3F800000;
+
+  // -1.0 e0
+  // 1_011 1111 1_000 0000 0000 0000 0000 0000
+  // sign 1, exp 0111_1111/0x7F, mant 0 => 1.0
+  // 0xBF80_0000
+
+  opb.binary_value = 0xBF800000;
+  riscv_intrinsic_fadds(opa.float_value,opb.float_value);
+
+  if (neorv32_cpu_csr_read(CSR_MCAUSE) == TRAP_CODE_I_ILLEGAL) {
+    neorv32_uart0_printf("%c[1m[FAILED]%c[0m\n", 27, 27);
+    neorv32_uart0_printf("Addition of 1.0 + (-1.0) timed out\n");
+    err_cnt_total++;
+  }
+  print_report(err_cnt);
+  test_cnt++;
+
+  // ********************************************
+  // Conversion Tests Instruction Time-out test
+  // ********************************************
+  neorv32_uart0_printf("\n#%u: Corner-case FCVT.WU.S...\n", test_cnt);
+
+  // Test large exponent conversion to trigger long normalizer times
+  // Max positive number
+  // 1.0 e127
+  // 0_111 1111 0_000 0000 0000 0000 0000 0000
+  // sign 0, exp 1111_1110/254, mant 0
+  // 0x7F00_0000
+
+  neorv32_cpu_csr_write(CSR_MCAUSE, 0);
+  opa.binary_value = 0x7F000000;
+  for (i=0;i<254; i++) {
+    riscv_intrinsic_fcvt_wus(opa.float_value);
+    if (neorv32_cpu_csr_read(CSR_MCAUSE) == TRAP_CODE_I_ILLEGAL) {
+      neorv32_uart0_printf("%c[1m[FAILED]%c[0m\n", 27, 27);
+      neorv32_uart0_printf("Conversion of opa with %d exponent timed out\n",opa.binary_value>>23);
+      err_cnt_total++;
+    }
+    neorv32_cpu_csr_write(CSR_MCAUSE, 0);
+    // decrease opa exponent by 1
+    opa.binary_value = opa.binary_value - 0x00800000;
+  }
+  print_report(err_cnt);
+  test_cnt++;
+
+
+  neorv32_uart0_printf("\n#%u: Corner-case FCVT.W.S...\n", test_cnt);
+
+  neorv32_cpu_csr_write(CSR_MCAUSE, 0);
+  opa.binary_value = 0x7F000000;
+  for (i=0;i<254; i++) {
+    riscv_intrinsic_fcvt_ws(opa.float_value);
+    if (neorv32_cpu_csr_read(CSR_MCAUSE) == TRAP_CODE_I_ILLEGAL) {
+      neorv32_uart0_printf("%c[1m[FAILED]%c[0m\n", 27, 27);
+      neorv32_uart0_printf("Conversion of opa with %d exponent timed out\n",opa.binary_value>>23);
+      err_cnt_total++;
+    }
+    neorv32_cpu_csr_write(CSR_MCAUSE, 0);
+    // decrease opa exponent by 1
+    opa.binary_value = opa.binary_value - 0x00800000;
+  }
+  print_report(err_cnt);
+  test_cnt++;
+
+
+  // ********************************************
+  // Add/Sub Tests
+  // ********************************************
+  neorv32_uart0_printf("\n#%u: Corner-case FADD.S...\n", test_cnt);
+
+  // Test large differences in exponent to trigger long cross normalizer times
+  // Max exponent positive number
+  // 1.0 e127
+  // 0_111 1111 0_000 0000 0000 0000 0000 0000
+  // sign 0, exp 1111_1110/254, mant 0
+  // 0x7F00_0000
+  opa.binary_value = 0x7F000000;
+
+  // Min exponent positive number
+  // 1.0 e-126
+  // 0_000 0000 1_000 0000 0000 0000 0000 0000
+  // sign 0, exp 0000_0001/001, mant 0
+  // 0x0080_0000
+  opb.binary_value = 0x00800000;
+
+  for (i=0;i<253; i++) {
+    riscv_intrinsic_fadds(opa.float_value, opb.float_value);
+    if (neorv32_cpu_csr_read(CSR_MCAUSE) == TRAP_CODE_I_ILLEGAL) {
+      neorv32_uart0_printf("%c[1m[FAILED]%c[0m\n", 27, 27);
+      neorv32_uart0_printf("Addition using opa with %d exponent and opb with %d exponent timed out\n",opa.binary_value>>23,opb.binary_value>>23);
+      err_cnt_total++;
+    }
+    neorv32_cpu_csr_write(CSR_MCAUSE, 0);
+    // increment opb exponent by 1
+    opb.binary_value = opb.binary_value + 0x00800000;
+  }
+  print_report(err_cnt);
+  test_cnt++;
+
+  opb.binary_value = 0x00800000;
+  neorv32_uart0_printf("\n#%u: Corner-case FSUB.S...\n", test_cnt);
+  for (i=0;i<253; i++) {
+    riscv_intrinsic_fsubs(opa.float_value, opb.float_value);
+    if (neorv32_cpu_csr_read(CSR_MCAUSE) == TRAP_CODE_I_ILLEGAL) {
+      neorv32_uart0_printf("%c[1m[FAILED]%c[0m\n", 27, 27);
+      neorv32_uart0_printf("Subtraction using opa with %d exponent and opb with %d exponent timed out\n",opa.binary_value>>23,opb.binary_value>>23);
+      err_cnt_total++;
+    }
+    neorv32_cpu_csr_write(CSR_MCAUSE, 0);
+    // increment opb exponent by 1
+    opb.binary_value = opb.binary_value + 0x00800000;
+  }
+  print_report(err_cnt);
+  test_cnt++;
+#endif
+
+
+// ----------------------------------------------------------------------------
 // UNSUPPORTED Instructions Tests - Execution should raise illegal instruction exception
 // ----------------------------------------------------------------------------
-
 #if (RUN_UNAVAIL_TESTS != 0)
   neorv32_uart0_printf("\n# unsupported FDIV.S (division) [illegal instruction]...\n");
   neorv32_cpu_csr_write(CSR_MCAUSE, 0);
@@ -540,11 +679,10 @@ int main() {
 // ----------------------------------------------------------------------------
 // Instruction execution timing test
 // ----------------------------------------------------------------------------
-
 #if (RUN_TIMING_TESTS != 0)
 
   uint32_t time_start, time_sw, time_hw;
-  const uint32_t num_runs = 4096;
+  const uint32_t num_runs = 16*1024;
 
   neorv32_uart0_printf("\nAverage execution time tests (%u runs)\n", num_runs);
 
@@ -865,7 +1003,6 @@ int main() {
     neorv32_uart0_printf("\n%c[1m[Zfinx extension verification successful!]%c[0m\n", 27, 27);
     return 0;
   }
-
 }
 
 
@@ -879,9 +1016,9 @@ uint32_t get_test_vector(void) {
   float_conv_t tmp;
 
   // generate special value "every" ~256th time this function is called
-  if ((xorshift32() & 0xff) == 0xff) {
+  if ((neorv32_aux_xorshift32() & 0xff) == 0xff) {
 
-    switch((xorshift32() >> 10) & 0x3) { // random decision which special value we are taking
+    switch((neorv32_aux_xorshift32() >> 10) & 0x3) { // random decision which special value we are taking
       case  0: tmp.float_value  = +INFINITY; break;
       case  1: tmp.float_value  = -INFINITY; break;
       case  2: tmp.float_value  = +0.0f; break;
@@ -894,27 +1031,10 @@ uint32_t get_test_vector(void) {
     }
   }
   else {
-    tmp.binary_value = xorshift32();
+    tmp.binary_value = neorv32_aux_xorshift32();
   }
 
   return tmp.binary_value;
-}
-
-
-/**********************************************************************//**
- * PSEUDO-RANDOM number generator.
- *
- * @return Random data (32-bit).
- **************************************************************************/
-uint32_t xorshift32(void) {
-
-  static uint32_t x32 = 314159265;
-
-  x32 ^= x32 << 13;
-  x32 ^= x32 >> 17;
-  x32 ^= x32 << 5;
-
-  return x32;
 }
 
 

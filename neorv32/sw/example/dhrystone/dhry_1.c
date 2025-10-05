@@ -3,9 +3,9 @@
  *
  *                   "DHRYSTONE" Benchmark Program
  *                   -----------------------------
- *                                                                            
+ *
  *  Version:    C, Version 2.1
- *                                                                            
+ *
  *  File:       dhry_1.c (part 2 of 3)
  *
  *  Date:       May 25, 1988
@@ -17,7 +17,7 @@
 
 /*
   Original from https://github.com/sifive/benchmark-dhrystone
-  Modified for the NEORV32 Processor
+  Modified for the NEORV32 RISC-V Processor
 */
 
 #define TIME
@@ -26,6 +26,8 @@
 #include <string.h>
 #include "dhry.h"
 
+/** UART BAUD rate */
+#define BAUD_RATE   19200
 
 #ifndef DHRY_ITERS
 #define DHRY_ITERS 10000
@@ -103,12 +105,10 @@ int main (void)
 
   { /* *****  NEORV32-SPECIFIC ***** */
     neorv32_rte_setup();
-    neorv32_cpu_csr_write(CSR_MIE, 0); // no interrupt, thanks
-    neorv32_uart0_setup(19200, 0);
-    // check available hardware extensions and compare with compiler flags
-    neorv32_rte_check_isa(0); // silent = 0 -> show message if isa mismatch
+    neorv32_cpu_csr_write(CSR_MIE, 0); // no interrupts
+    neorv32_uart0_setup(BAUD_RATE, 0);
 
-    neorv32_uart0_printf("NEORV32: Processor running at %u Hz\n", (uint32_t)NEORV32_SYSINFO->CLK);
+    neorv32_uart0_printf("NEORV32: Processor running at %u Hz\n", (uint32_t)neorv32_sysinfo_get_clk());
     neorv32_uart0_printf("NEORV32: Executing Dhrystone (%u iterations). This may take some time...\n\n", (uint32_t)DHRY_ITERS);
 
     // clear cycle counter
@@ -118,7 +118,7 @@ int main (void)
     #warning DHRYSTONE HAS NOT BEEN COMPILED! Use >>make USER_FLAGS+=-DRUN_DHRYSTONE clean_all exe<< to compile it.
 
     // inform the user if you are actually executing this
-    neorv32_uart0_printf("ERROR! DhryStone has not been compiled. Use >>make USER_FLAGS+=-RUN_DHRYSTONE clean_all exe<< to compile it.\n");
+    neorv32_uart0_printf("ERROR! DhryStone has not been compiled. Use >>make USER_FLAGS+=-DRUN_DHRYSTONE ...<< to compile it.\n");
 
     while(1);
 #endif
@@ -140,7 +140,7 @@ int main (void)
   Ptr_Glob->Discr                       = Ident_1;
   Ptr_Glob->variant.var_1.Enum_Comp     = Ident_3;
   Ptr_Glob->variant.var_1.Int_Comp      = 40;
-  strcpy (Ptr_Glob->variant.var_1.Str_Comp, 
+  strcpy (Ptr_Glob->variant.var_1.Str_Comp,
           "DHRYSTONE PROGRAM, SOME STRING");
   strcpy (Str_1_Loc, "DHRYSTONE PROGRAM, 1'ST STRING");
 
@@ -195,7 +195,7 @@ int main (void)
 */
 
   { /* *****  NEORV32-SPECIFIC ***** */
-    Begin_Time = (long)neorv32_mtime_get_time();
+    Begin_Time = (long)neorv32_clint_time_get();
   } /* ***** /NEORV32-SPECIFIC ***** */
 
   for (Run_Index = 1; Run_Index <= Number_Of_Runs; ++Run_Index)
@@ -262,9 +262,9 @@ int main (void)
 */
 
   { /* *****  NEORV32-SPECIFIC ***** */
-    End_Time = (long)neorv32_mtime_get_time();
+    End_Time = (long)neorv32_clint_time_get();
   } /* ***** /NEORV32-SPECIFIC ***** */
-  
+
 
   neorv32_uart0_printf ("Execution ends\n");
   neorv32_uart0_printf ("\n");
@@ -331,35 +331,35 @@ int main (void)
   {
 /*
 #ifdef TIME
-    Microseconds = (float) User_Time * Mic_secs_Per_Second 
+    Microseconds = (float) User_Time * Mic_secs_Per_Second
                         / (float) Number_Of_Runs;
     Dhrystones_Per_Second = (float) Number_Of_Runs / (float) User_Time;
 #else
-    Microseconds = (float) User_Time * Mic_secs_Per_Second 
+    Microseconds = (float) User_Time * Mic_secs_Per_Second
                         / ((float) HZ * ((float) Number_Of_Runs));
     Dhrystones_Per_Second = ((float) HZ * (float) Number_Of_Runs)
                         / (float) User_Time;
 #endif
 */
     { /* *****  NEORV32-SPECIFIC ***** */
-      neorv32_uart0_printf ("Microseconds for one run through Dhrystone: %u \n", (uint32_t)((User_Time * (Mic_secs_Per_Second / Number_Of_Runs)) / NEORV32_SYSINFO->CLK));
+      neorv32_uart0_printf ("Microseconds for one run through Dhrystone: %u \n", (uint32_t)((User_Time * (Mic_secs_Per_Second / Number_Of_Runs)) / neorv32_sysinfo_get_clk()));
 
-      uint32_t dhry_per_sec = (uint32_t)(NEORV32_SYSINFO->CLK / (User_Time / Number_Of_Runs));
+      uint32_t dhry_per_sec = (uint32_t)(neorv32_sysinfo_get_clk() / (User_Time / Number_Of_Runs));
 
       neorv32_uart0_printf ("Dhrystones per Second:                      %u \n\n", (uint32_t)dhry_per_sec);
 
       neorv32_uart0_printf("NEORV32: << DETAILED RESULTS (integer parts only) >>\n");
       neorv32_uart0_printf("NEORV32: Total cycles:      %u\n", (uint32_t)User_Time);
-      neorv32_uart0_printf("NEORV32: Cycles per second: %u\n", (uint32_t)NEORV32_SYSINFO->CLK);
+      neorv32_uart0_printf("NEORV32: Cycles per second: %u\n", (uint32_t)neorv32_sysinfo_get_clk());
       neorv32_uart0_printf("NEORV32: Total runs:        %u\n", (uint32_t)Number_Of_Runs);
 
       neorv32_uart0_printf("\n");
       neorv32_uart0_printf("NEORV32: DMIPS/s:           %u\n", (uint32_t)dhry_per_sec);
-      neorv32_uart0_printf("NEORV32: DMIPS/s/MHz:       %u\n", (uint32_t)(dhry_per_sec / (NEORV32_SYSINFO->CLK / 1000000)));
+      neorv32_uart0_printf("NEORV32: DMIPS/s/MHz:       %u\n", (uint32_t)(dhry_per_sec / (neorv32_sysinfo_get_clk() / 1000000)));
 
       neorv32_uart0_printf("\n");
       neorv32_uart0_printf("NEORV32: VAX DMIPS/s:       %u\n", (uint32_t)dhry_per_sec/1757);
-      neorv32_uart0_printf("NEORV32: VAX DMIPS/s/MHz:   %u/1757\n", (uint32_t)(dhry_per_sec / (NEORV32_SYSINFO->CLK / 1000000)));
+      neorv32_uart0_printf("NEORV32: VAX DMIPS/s/MHz:   %u/1757\n", (uint32_t)(dhry_per_sec / (neorv32_sysinfo_get_clk() / 1000000)));
     } /* ***** /NEORV32-SPECIFIC ***** */
     /*
       neorv32_uart0_printf ("Microseconds for one run through Dhrystone: ");
@@ -382,27 +382,27 @@ void Proc_1 (Ptr_Val_Par)
 REG Rec_Pointer Ptr_Val_Par;
     /* executed once */
 {
-  REG Rec_Pointer Next_Record = Ptr_Val_Par->Ptr_Comp;  
+  REG Rec_Pointer Next_Record = Ptr_Val_Par->Ptr_Comp;
                                         /* == Ptr_Glob_Next */
   /* Local variable, initialized with Ptr_Val_Par->Ptr_Comp,    */
   /* corresponds to "rename" in Ada, "with" in Pascal           */
-  
-  structassign (*Ptr_Val_Par->Ptr_Comp, *Ptr_Glob); 
+
+  structassign (*Ptr_Val_Par->Ptr_Comp, *Ptr_Glob);
   Ptr_Val_Par->variant.var_1.Int_Comp = 5;
-  Next_Record->variant.var_1.Int_Comp 
+  Next_Record->variant.var_1.Int_Comp
         = Ptr_Val_Par->variant.var_1.Int_Comp;
   Next_Record->Ptr_Comp = Ptr_Val_Par->Ptr_Comp;
   Proc_3 (&Next_Record->Ptr_Comp);
-    /* Ptr_Val_Par->Ptr_Comp->Ptr_Comp 
+    /* Ptr_Val_Par->Ptr_Comp->Ptr_Comp
                         == Ptr_Glob->Ptr_Comp */
   if (Next_Record->Discr == Ident_1)
     /* then, executed */
   {
     Next_Record->variant.var_1.Int_Comp = 6;
-    Proc_6 (Ptr_Val_Par->variant.var_1.Enum_Comp, 
+    Proc_6 (Ptr_Val_Par->variant.var_1.Enum_Comp,
            &Next_Record->variant.var_1.Enum_Comp);
     Next_Record->Ptr_Comp = Ptr_Glob->Ptr_Comp;
-    Proc_7 (Next_Record->variant.var_1.Int_Comp, 10, 
+    Proc_7 (Next_Record->variant.var_1.Int_Comp, 10,
            &Next_Record->variant.var_1.Int_Comp);
   }
   else /* not executed */
@@ -417,7 +417,7 @@ void Proc_2 (Int_Par_Ref)
 
 One_Fifty   *Int_Par_Ref;
 {
-  One_Fifty  Int_Loc;  
+  One_Fifty  Int_Loc;
   Enumeration   Enum_Loc;
 
   Int_Loc = *Int_Par_Ref + 10;

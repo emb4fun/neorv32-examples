@@ -3,51 +3,58 @@
 ==== General Purpose Timer (GPTMR)
 
 [cols="<3,<3,<4"]
-[frame="topbot",grid="none"]
+[grid="none"]
 |=======================
-| Hardware source file(s): | neorv32_gptmr.vhd | 
-| Software driver file(s): | neorv32_gptmr.c |
-|                          | neorv32_gptmr.h |
-| Top entity port:         | none | 
-| Configuration generics:  | `IO_GPTMR_EN`       | implement general purpose timer when `true`
-| CPU interrupts:          | fast IRQ channel 12 | timer interrupt (see <<_processor_interrupts>>)
+| Hardware source files:  | neorv32_gptmr.vhd   |
+| Software driver files:  | neorv32_gptmr.c     | link:https://stnolting.github.io/neorv32/sw/neorv32__gptmr_8c.html[Online software reference (Doxygen)]
+|                         | neorv32_gptmr.h     | link:https://stnolting.github.io/neorv32/sw/neorv32__gptmr_8h.html[Online software reference (Doxygen)]
+| Top entity ports:       | none                |
+| Configuration generics: | `IO_GPTMR_EN`       | implement general purpose timer when `true`
+| CPU interrupts:         | fast IRQ channel 12 | timer interrupt (see <<_processor_interrupts>>)
 |=======================
 
+**Key Features**
 
-**Theory of Operation**
+* 32-bit auto-reloading tick timer
+* 32-bit threshold value resolution
+* 3-bit clock divider
+* Tick interrupt
 
-The general purpose timer module provides a simple yet universal 32-bit timer. The timer is implemented if
-`IO_GPTMR_EN` top generic is set `true`. It provides a 32-bit counter register (`COUNT`) and a 32-bit threshold
-register (`THRES`). An interrupt is generated whenever the value of the counter registers matches the one from
-threshold register.
 
-The timer is enabled by setting the `GPTMR_CTRL_EN` bit in the device's control register `CTRL`. The `COUNT`
-register will start incrementing at a programmable rate, which scales the main processor clock. The
-pre-scaler value is configured via the three `GPTMR_CTRL_PRSCx` control register bits:
+**Overview**
+
+The general purpose timer module implements a simple 32-bit interval timer. It is implemented if the processor's
+`IO_GPTMR_EN` top generic is set `true`. The timer provides a pre-scaled counter register that can trigger an interrupt
+when reaching a programmable threshold value.
+
+The GPTMR provides three interface registers: a control register (`CTRL`), a 32-bit counter register (`COUNT`) and a
+32-bit threshold register (`THRES`). The timer is globally enabled by setting the `GPTMR_CTRL_EN` bit in the module's
+control register. When the timer is enabled the `COUNT` register will start incrementing from zero at a programmable
+rate that scales the main processor clock. This pre-scaler is configured via the three `GPTMR_CTRL_PRSCx`
+control register bits:
 
 .GPTMR prescaler configuration
 [cols="<4,^1,^1,^1,^1,^1,^1,^1,^1"]
 [options="header",grid="rows"]
 |=======================
-| **`GPTMR_CTRL_PRSCx`**      | `0b000` | `0b001` | `0b010` | `0b011` | `0b100` | `0b101` | `0b110` | `0b111`
+| **`GPTMR_CTRL_PRSC[2:0]`**  | `0b000` | `0b001` | `0b010` | `0b011` | `0b100` | `0b101` | `0b110` | `0b111`
 | Resulting `clock_prescaler` |       2 |       4 |       8 |      64 |     128 |    1024 |    2048 |    4096
 |=======================
 
-The timer provides two operation modes that are configured via the `GPTMR_CTRL_MODE` control register bit:
-.If `GPTMR_CTRL_MODE` is cleared (`0`) the timer operates in _single-shot mode_. As soon as `COUNT` matches
-`THRES` an interrupt request is generated and the timer stops operation (i.e. it stops incrementing)
-.If `GPTMR_CTRL_MODE` is set (`1`) the timer operates in _continuous mode_. When `COUNT` matches `THRES` an interrupt
-request is generated and `COUNT` is automatically reset to all-zero before continuing to increment.
+Whenever the counter register `COUNT` equals the programmable threshold value `THRES` the module's interrupt signal becomes
+pending (indicated by `GPTMR_CTRL_IRQ_PND` being set). In this case the `COUNT` register is automatically reset and restarts
+incrementing from zero. Note that a pending interrupt has to be cleared manually by writing a `1` to `GPTMR_CTRL_IRQ_CLR`.
 
+
+.Resetting the Counter
 [NOTE]
-Disabling the timer will not clear the `COUNT` register. However, it can be manually reset at any time by
-writing zero to it.
+Disabling the GPTMR will also clear the `COUNT` register.
 
 
-**Timer Interrupt**
+**Interrupt**
 
-The GPTMR interrupt is triggered when the timer is enabled and `COUNT` matches `THRES`. The interrupt
-remains pending inside the CPU until it explicitly cleared by writing zero to the according <<_mip>> CSR bit.
+The GPTRM provides a single interrupt line is triggered whenever `COUNT` equals `THRES`. Once triggered, the interrupt will
+stay pending until explicitly cleared by writing a 1 to `GPTMR_CTRL_IRQ_CLR`.
 
 
 **Register Map**
@@ -57,10 +64,11 @@ remains pending inside the CPU until it explicitly cleared by writing zero to th
 [options="header",grid="all"]
 |=======================
 | Address | Name [C] | Bit(s), Name [C] | R/W | Function
-.4+<| `0xfffff100` .4+<| `CTRL` <|`0`    `GPTMR_CTRL_EN`                       ^| r/w <| Timer enable flag
-                                <|`3:1`  `GPTMR_CTRL_PRSC2 : GPTMR_CTRL_PRSC0` ^| r/w <| 3-bit clock prescaler select
-                                <|`4`    `GPTMR_CTRL_MODE`                     ^| r/w <| Counter mode: `0`=single-shot, `1`=continuous
-                                <|`31:5` -                                     ^| r/- <| _reserved_, read as zero
-| `0xfffff104` | `THRES` |`31:0` | r/w | Threshold value register
-| `0xfffff108` | `COUNT` |`31:0` | r/w | Counter register
+.5+<| `0xfff10000` .5+<| `CTRL` <|`0`   `GPTMR_CTRL_EN`                       ^| r/w <| Timer enable flag
+                                <|`3:1` `GPTMR_CTRL_PRSC2 : GPTMR_CTRL_PRSC0` ^| r/w <| 3-bit clock prescaler select
+                                <|`29:4` -                                    ^| r/- <| _reserved_, read as zero
+                                <|`30`  `GPTMR_CTRL_IRQ_CLR`                  ^| -/w <| Write `1` to clear timer-match interrupt; auto-clears
+                                <|`31`  `GPTMR_CTRL_IRQ_PND`                  ^| r/- <| Timer-match interrupt pending
+| `0xfff10004` | `THRES`   |`31:0` | r/w | Threshold value register
+| `0xfff10008` | `COUNT`   |`31:0` | r/- | Counter register
 |=======================

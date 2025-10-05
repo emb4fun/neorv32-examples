@@ -9,14 +9,6 @@
    categories="System" />
  <parameter name="bonusData"><![CDATA[bonusData 
 {
-   element $${FILENAME}
-   {
-      datum _originalDeviceFamily
-      {
-         value = "Cyclone IV E";
-         type = "String";
-      }
-   }
    element clk_sys
    {
       datum _sortIndex
@@ -84,7 +76,7 @@
  <interface name="clk" internal="clk_sys.clk_in" type="clock" dir="end" />
  <interface name="reset" internal="clk_sys.clk_in_reset" type="reset" dir="end" />
  <interface name="sdram" internal="sdram.wire" type="conduit" dir="end" />
- <module name="clk_sys" kind="clock_source" version="15.0" enabled="1">
+ <module name="clk_sys" kind="clock_source" version="20.1" enabled="1">
   <parameter name="clockFrequency" value="100000000" />
   <parameter name="clockFrequencyKnown" value="true" />
   <parameter name="inputClockFrequency" value="0" />
@@ -93,7 +85,7 @@
  <module
    name="sdram"
    kind="altera_avalon_new_sdram_controller"
-   version="15.0"
+   version="20.1"
    enabled="1">
   <parameter name="TAC" value="5.5" />
   <parameter name="TMRD" value="3" />
@@ -104,7 +96,7 @@
   <parameter name="casLatency" value="3" />
   <parameter name="clockRate" value="100000000" />
   <parameter name="columnWidth" value="9" />
-  <parameter name="componentName" value="qsys_core_sdram" />
+  <parameter name="componentName" value="$${FILENAME}_sdram" />
   <parameter name="dataWidth" value="16" />
   <parameter name="generateSimulationModel" value="false" />
   <parameter name="initNOPDelay" value="0.0" />
@@ -120,25 +112,25 @@
   <parameter name="rowWidth" value="13" />
  </module>
  <module name="wb_avm_bridge" kind="wb_avm_bridge" version="1.0" enabled="1" />
- <connection kind="avalon" version="15.0" start="wb_avm_bridge.m0" end="sdram.s1">
+ <connection kind="avalon" version="20.1" start="wb_avm_bridge.m0" end="sdram.s1">
   <parameter name="arbitrationPriority" value="1" />
   <parameter name="baseAddress" value="0x0000" />
   <parameter name="defaultConnection" value="false" />
  </connection>
- <connection kind="clock" version="15.0" start="clk_sys.clk" end="sdram.clk" />
+ <connection kind="clock" version="20.1" start="clk_sys.clk" end="sdram.clk" />
  <connection
    kind="clock"
-   version="15.0"
+   version="20.1"
    start="clk_sys.clk"
    end="wb_avm_bridge.clock" />
  <connection
    kind="reset"
-   version="15.0"
+   version="20.1"
    start="clk_sys.clk_reset"
    end="wb_avm_bridge.reset" />
  <connection
    kind="reset"
-   version="15.0"
+   version="20.1"
    start="clk_sys.clk_reset"
    end="sdram.reset" />
  <interconnectRequirement for="$system" name="qsys_mm.clockCrossingAdapter" value="HANDSHAKE" />

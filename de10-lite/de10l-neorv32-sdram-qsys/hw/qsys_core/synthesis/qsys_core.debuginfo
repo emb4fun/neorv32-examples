@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<EnsembleReport name="qsys_core" kind="system" version="15.0" fabric="QSYS">
- <!-- Format version 15.0 153 (Future versions may contain additional information.) -->
- <!-- 2021.11.13.18:46:48 -->
+<EnsembleReport name="qsys_core" kind="system" version="20.1" fabric="QSYS">
+ <!-- Format version 20.1 720 (Future versions may contain additional information.) -->
+ <!-- 2025.10.04.17:45:00 -->
  <!-- A collection of modules and connections -->
  <parameter name="clockCrossingAdapter">
   <type>com.altera.sopcmodel.ensemble.EClockAdapter</type>
@@ -53,7 +53,7 @@
  </parameter>
  <parameter name="generationId">
   <type>int</type>
-  <value>1636825602</value>
+  <value>1759592692</value>
   <derived>false</derived>
   <enabled>true</enabled>
   <visible>true</visible>
@@ -147,7 +147,7 @@
   <visible>false</visible>
   <valid>true</valid>
  </parameter>
- <module name="clk_sys" kind="clock_source" version="15.0" path="clk_sys">
+ <module name="clk_sys" kind="clock_source" version="20.1" path="clk_sys">
   <!-- Describes a single module. Module parameters are
 the requested settings for a module instance. -->
   <parameter name="clockFrequency">
@@ -200,7 +200,7 @@ the requested settings for a module instance. -->
    <visible>true</visible>
    <valid>true</valid>
   </parameter>
-  <interface name="clk_in" kind="clock_sink" version="15.0">
+  <interface name="clk_in" kind="clock_sink" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -265,7 +265,7 @@ parameters are a RESULT of the module parameters. -->
     <role>clk</role>
    </port>
   </interface>
-  <interface name="clk_in_reset" kind="reset_sink" version="15.0">
+  <interface name="clk_in_reset" kind="reset_sink" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -314,7 +314,7 @@ parameters are a RESULT of the module parameters. -->
     <role>reset_n</role>
    </port>
   </interface>
-  <interface name="clk" kind="clock_source" version="15.0">
+  <interface name="clk" kind="clock_source" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -401,7 +401,7 @@ parameters are a RESULT of the module parameters. -->
     <name>mm_interconnect_0.clk_sys_clk</name>
    </clockDomainMember>
   </interface>
-  <interface name="clk_reset" kind="reset_source" version="15.0">
+  <interface name="clk_reset" kind="reset_source" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -466,7 +466,7 @@ parameters are a RESULT of the module parameters. -->
  <module
    name="sdram"
    kind="altera_avalon_new_sdram_controller"
-   version="15.0"
+   version="20.1"
    path="sdram">
   <!-- Describes a single module. Module parameters are
 the requested settings for a module instance. -->
@@ -809,7 +809,7 @@ the requested settings for a module instance. -->
    <visible>true</visible>
    <valid>true</valid>
   </parameter>
-  <interface name="clk" kind="clock_sink" version="15.0">
+  <interface name="clk" kind="clock_sink" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -870,7 +870,7 @@ parameters are a RESULT of the module parameters. -->
     <role>clk</role>
    </port>
   </interface>
-  <interface name="reset" kind="reset_sink" version="15.0">
+  <interface name="reset" kind="reset_sink" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -915,7 +915,7 @@ parameters are a RESULT of the module parameters. -->
     <role>reset_n</role>
    </port>
   </interface>
-  <interface name="s1" kind="avalon_slave" version="15.0">
+  <interface name="s1" kind="avalon_slave" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -1304,7 +1304,7 @@ parameters are a RESULT of the module parameters. -->
     <role>waitrequest</role>
    </port>
   </interface>
-  <interface name="wire" kind="conduit_end" version="15.0">
+  <interface name="wire" kind="conduit_end" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -1421,7 +1421,7 @@ the requested settings for a module instance. -->
    <visible>true</visible>
    <valid>true</valid>
   </parameter>
-  <interface name="clock" kind="clock_sink" version="15.0">
+  <interface name="clock" kind="clock_sink" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -1466,7 +1466,7 @@ parameters are a RESULT of the module parameters. -->
     <role>clk</role>
    </port>
   </interface>
-  <interface name="reset" kind="reset_sink" version="15.0">
+  <interface name="reset" kind="reset_sink" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -1511,7 +1511,7 @@ parameters are a RESULT of the module parameters. -->
     <role>reset</role>
    </port>
   </interface>
-  <interface name="m0" kind="avalon_master" version="15.0">
+  <interface name="m0" kind="avalon_master" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -1830,7 +1830,7 @@ parameters are a RESULT of the module parameters. -->
     <span>4294967296</span>
    </memoryBlock>
   </interface>
-  <interface name="conduit" kind="conduit_end" version="15.0">
+  <interface name="conduit" kind="conduit_end" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -1921,7 +1921,7 @@ parameters are a RESULT of the module parameters. -->
  <module
    name="mm_interconnect_0"
    kind="altera_mm_interconnect"
-   version="15.0"
+   version="20.1"
    path="mm_interconnect_0">
   <!-- Describes a single module. Module parameters are
 the requested settings for a module instance. -->
@@ -1935,7 +1935,7 @@ the requested settings for a module instance. -->
   </assignment>
   <parameter name="COMPOSE_CONTENTS">
    <type>java.lang.String</type>
-   <value><![CDATA[add_instance {wb_avm_bridge_m0_translator} {altera_merlin_master_translator};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_ADDRESS_W} {32};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_DATA_W} {32};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_BURSTCOUNT_W} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_BYTEENABLE_W} {4};set_instance_parameter_value {wb_avm_bridge_m0_translator} {UAV_ADDRESS_W} {32};set_instance_parameter_value {wb_avm_bridge_m0_translator} {UAV_BURSTCOUNT_W} {3};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_READLATENCY} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_WRITE_WAIT} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_READ_WAIT} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_DATA_HOLD} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_SETUP_WAIT} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_READDATA} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_WRITEDATA} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_READ} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_WRITE} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_BEGINBURSTTRANSFER} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_BEGINTRANSFER} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_BYTEENABLE} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_CHIPSELECT} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_ADDRESS} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_BURSTCOUNT} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_DEBUGACCESS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_CLKEN} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_READDATAVALID} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_WAITREQUEST} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_LOCK} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_READRESPONSE} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_WRITERESPONSE} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_SYMBOLS_PER_WORD} {4};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_ADDRESS_SYMBOLS} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_BURSTCOUNT_SYMBOLS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_CONSTANT_BURST_BEHAVIOR} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {UAV_CONSTANT_BURST_BEHAVIOR} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_LINEWRAPBURSTS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_MAX_PENDING_READ_TRANSACTIONS} {64};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_BURSTBOUNDARIES} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_INTERLEAVEBURSTS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_BITS_PER_SYMBOL} {8};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_ISBIGENDIAN} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_ADDRESSGROUP} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {UAV_ADDRESSGROUP} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_REGISTEROUTGOINGSIGNALS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_REGISTERINCOMINGSIGNALS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_ALWAYSBURSTMAXBURST} {0};add_instance {sdram_s1_translator} {altera_merlin_slave_translator};set_instance_parameter_value {sdram_s1_translator} {AV_ADDRESS_W} {25};set_instance_parameter_value {sdram_s1_translator} {AV_DATA_W} {16};set_instance_parameter_value {sdram_s1_translator} {UAV_DATA_W} {16};set_instance_parameter_value {sdram_s1_translator} {AV_BURSTCOUNT_W} {1};set_instance_parameter_value {sdram_s1_translator} {AV_BYTEENABLE_W} {2};set_instance_parameter_value {sdram_s1_translator} {UAV_BYTEENABLE_W} {2};set_instance_parameter_value {sdram_s1_translator} {UAV_ADDRESS_W} {32};set_instance_parameter_value {sdram_s1_translator} {UAV_BURSTCOUNT_W} {2};set_instance_parameter_value {sdram_s1_translator} {AV_READLATENCY} {0};set_instance_parameter_value {sdram_s1_translator} {AV_SETUP_WAIT} {0};set_instance_parameter_value {sdram_s1_translator} {AV_WRITE_WAIT} {0};set_instance_parameter_value {sdram_s1_translator} {AV_READ_WAIT} {1};set_instance_parameter_value {sdram_s1_translator} {AV_DATA_HOLD} {0};set_instance_parameter_value {sdram_s1_translator} {AV_TIMING_UNITS} {1};set_instance_parameter_value {sdram_s1_translator} {USE_READDATA} {1};set_instance_parameter_value {sdram_s1_translator} {USE_WRITEDATA} {1};set_instance_parameter_value {sdram_s1_translator} {USE_READ} {1};set_instance_parameter_value {sdram_s1_translator} {USE_WRITE} {1};set_instance_parameter_value {sdram_s1_translator} {USE_BEGINBURSTTRANSFER} {0};set_instance_parameter_value {sdram_s1_translator} {USE_BEGINTRANSFER} {0};set_instance_parameter_value {sdram_s1_translator} {USE_BYTEENABLE} {1};set_instance_parameter_value {sdram_s1_translator} {USE_CHIPSELECT} {1};set_instance_parameter_value {sdram_s1_translator} {USE_ADDRESS} {1};set_instance_parameter_value {sdram_s1_translator} {USE_BURSTCOUNT} {0};set_instance_parameter_value {sdram_s1_translator} {USE_READDATAVALID} {1};set_instance_parameter_value {sdram_s1_translator} {USE_WAITREQUEST} {1};set_instance_parameter_value {sdram_s1_translator} {USE_WRITEBYTEENABLE} {0};set_instance_parameter_value {sdram_s1_translator} {USE_LOCK} {0};set_instance_parameter_value {sdram_s1_translator} {USE_AV_CLKEN} {0};set_instance_parameter_value {sdram_s1_translator} {USE_UAV_CLKEN} {0};set_instance_parameter_value {sdram_s1_translator} {USE_OUTPUTENABLE} {0};set_instance_parameter_value {sdram_s1_translator} {USE_DEBUGACCESS} {0};set_instance_parameter_value {sdram_s1_translator} {USE_READRESPONSE} {0};set_instance_parameter_value {sdram_s1_translator} {USE_WRITERESPONSE} {0};set_instance_parameter_value {sdram_s1_translator} {AV_SYMBOLS_PER_WORD} {2};set_instance_parameter_value {sdram_s1_translator} {AV_ADDRESS_SYMBOLS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_BURSTCOUNT_SYMBOLS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_CONSTANT_BURST_BEHAVIOR} {0};set_instance_parameter_value {sdram_s1_translator} {UAV_CONSTANT_BURST_BEHAVIOR} {0};set_instance_parameter_value {sdram_s1_translator} {AV_REQUIRE_UNALIGNED_ADDRESSES} {0};set_instance_parameter_value {sdram_s1_translator} {AV_LINEWRAPBURSTS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_MAX_PENDING_READ_TRANSACTIONS} {7};set_instance_parameter_value {sdram_s1_translator} {AV_MAX_PENDING_WRITE_TRANSACTIONS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_BURSTBOUNDARIES} {0};set_instance_parameter_value {sdram_s1_translator} {AV_INTERLEAVEBURSTS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_BITS_PER_SYMBOL} {8};set_instance_parameter_value {sdram_s1_translator} {AV_ISBIGENDIAN} {0};set_instance_parameter_value {sdram_s1_translator} {AV_ADDRESSGROUP} {0};set_instance_parameter_value {sdram_s1_translator} {UAV_ADDRESSGROUP} {0};set_instance_parameter_value {sdram_s1_translator} {AV_REGISTEROUTGOINGSIGNALS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_REGISTERINCOMINGSIGNALS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_ALWAYSBURSTMAXBURST} {0};set_instance_parameter_value {sdram_s1_translator} {CHIPSELECT_THROUGH_READLATENCY} {0};add_instance {wb_avm_bridge_m0_agent} {altera_merlin_master_agent};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ORI_BURST_SIZE_H} {101};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ORI_BURST_SIZE_L} {99};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_RESPONSE_STATUS_H} {98};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_RESPONSE_STATUS_L} {97};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_QOS_H} {86};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_QOS_L} {86};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DATA_SIDEBAND_H} {84};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DATA_SIDEBAND_L} {84};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ADDR_SIDEBAND_H} {83};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ADDR_SIDEBAND_L} {83};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURST_TYPE_H} {82};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURST_TYPE_L} {81};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_CACHE_H} {96};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_CACHE_L} {93};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_THREAD_ID_H} {89};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_THREAD_ID_L} {89};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURST_SIZE_H} {80};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURST_SIZE_L} {78};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_EXCLUSIVE} {73};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_LOCK} {72};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BEGIN_BURST} {85};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_PROTECTION_H} {92};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_PROTECTION_L} {90};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURSTWRAP_H} {77};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURSTWRAP_L} {77};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BYTE_CNT_H} {76};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BYTE_CNT_L} {74};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ADDR_H} {67};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ADDR_L} {36};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_COMPRESSED_READ} {68};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_POSTED} {69};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_WRITE} {70};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_READ} {71};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DATA_H} {31};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DATA_L} {0};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BYTEEN_H} {35};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BYTEEN_L} {32};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_SRC_ID_H} {87};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_SRC_ID_L} {87};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DEST_ID_H} {88};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DEST_ID_L} {88};set_instance_parameter_value {wb_avm_bridge_m0_agent} {ST_DATA_W} {102};set_instance_parameter_value {wb_avm_bridge_m0_agent} {ST_CHANNEL_W} {1};set_instance_parameter_value {wb_avm_bridge_m0_agent} {AV_BURSTCOUNT_W} {3};set_instance_parameter_value {wb_avm_bridge_m0_agent} {AV_LINEWRAPBURSTS} {0};set_instance_parameter_value {wb_avm_bridge_m0_agent} {AV_BURSTBOUNDARIES} {0};set_instance_parameter_value {wb_avm_bridge_m0_agent} {MERLIN_PACKET_FORMAT} {ori_burst_size(101:99) response_status(98:97) cache(96:93) protection(92:90) thread_id(89) dest_id(88) src_id(87) qos(86) begin_burst(85) data_sideband(84) addr_sideband(83) burst_type(82:81) burst_size(80:78) burstwrap(77) byte_cnt(76:74) trans_exclusive(73) trans_lock(72) trans_read(71) trans_write(70) trans_posted(69) trans_compressed_read(68) addr(67:36) byteen(35:32) data(31:0)};set_instance_parameter_value {wb_avm_bridge_m0_agent} {ADDR_MAP} {<?xml version="1.0" encoding="UTF-8"?>
+   <value><![CDATA[add_instance {wb_avm_bridge_m0_translator} {altera_merlin_master_translator};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_ADDRESS_W} {32};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_DATA_W} {32};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_BURSTCOUNT_W} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_BYTEENABLE_W} {4};set_instance_parameter_value {wb_avm_bridge_m0_translator} {UAV_ADDRESS_W} {32};set_instance_parameter_value {wb_avm_bridge_m0_translator} {UAV_BURSTCOUNT_W} {3};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_READLATENCY} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_WRITE_WAIT} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_READ_WAIT} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_DATA_HOLD} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_SETUP_WAIT} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_READDATA} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_WRITEDATA} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_READ} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_WRITE} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_BEGINBURSTTRANSFER} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_BEGINTRANSFER} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_BYTEENABLE} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_CHIPSELECT} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_ADDRESS} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_BURSTCOUNT} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_DEBUGACCESS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_CLKEN} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_READDATAVALID} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_WAITREQUEST} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_LOCK} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_READRESPONSE} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {USE_WRITERESPONSE} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_SYMBOLS_PER_WORD} {4};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_ADDRESS_SYMBOLS} {1};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_BURSTCOUNT_SYMBOLS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_CONSTANT_BURST_BEHAVIOR} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {UAV_CONSTANT_BURST_BEHAVIOR} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_LINEWRAPBURSTS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_MAX_PENDING_READ_TRANSACTIONS} {64};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_BURSTBOUNDARIES} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_INTERLEAVEBURSTS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_BITS_PER_SYMBOL} {8};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_ISBIGENDIAN} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_ADDRESSGROUP} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {UAV_ADDRESSGROUP} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_REGISTEROUTGOINGSIGNALS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_REGISTERINCOMINGSIGNALS} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {AV_ALWAYSBURSTMAXBURST} {0};set_instance_parameter_value {wb_avm_bridge_m0_translator} {SYNC_RESET} {0};add_instance {sdram_s1_translator} {altera_merlin_slave_translator};set_instance_parameter_value {sdram_s1_translator} {AV_ADDRESS_W} {25};set_instance_parameter_value {sdram_s1_translator} {AV_DATA_W} {16};set_instance_parameter_value {sdram_s1_translator} {UAV_DATA_W} {16};set_instance_parameter_value {sdram_s1_translator} {AV_BURSTCOUNT_W} {1};set_instance_parameter_value {sdram_s1_translator} {AV_BYTEENABLE_W} {2};set_instance_parameter_value {sdram_s1_translator} {UAV_BYTEENABLE_W} {2};set_instance_parameter_value {sdram_s1_translator} {UAV_ADDRESS_W} {32};set_instance_parameter_value {sdram_s1_translator} {UAV_BURSTCOUNT_W} {2};set_instance_parameter_value {sdram_s1_translator} {AV_READLATENCY} {0};set_instance_parameter_value {sdram_s1_translator} {AV_SETUP_WAIT} {0};set_instance_parameter_value {sdram_s1_translator} {AV_WRITE_WAIT} {0};set_instance_parameter_value {sdram_s1_translator} {AV_READ_WAIT} {1};set_instance_parameter_value {sdram_s1_translator} {AV_DATA_HOLD} {0};set_instance_parameter_value {sdram_s1_translator} {AV_TIMING_UNITS} {1};set_instance_parameter_value {sdram_s1_translator} {USE_READDATA} {1};set_instance_parameter_value {sdram_s1_translator} {USE_WRITEDATA} {1};set_instance_parameter_value {sdram_s1_translator} {USE_READ} {1};set_instance_parameter_value {sdram_s1_translator} {USE_WRITE} {1};set_instance_parameter_value {sdram_s1_translator} {USE_BEGINBURSTTRANSFER} {0};set_instance_parameter_value {sdram_s1_translator} {USE_BEGINTRANSFER} {0};set_instance_parameter_value {sdram_s1_translator} {USE_BYTEENABLE} {1};set_instance_parameter_value {sdram_s1_translator} {USE_CHIPSELECT} {1};set_instance_parameter_value {sdram_s1_translator} {USE_ADDRESS} {1};set_instance_parameter_value {sdram_s1_translator} {USE_BURSTCOUNT} {0};set_instance_parameter_value {sdram_s1_translator} {USE_READDATAVALID} {1};set_instance_parameter_value {sdram_s1_translator} {USE_WAITREQUEST} {1};set_instance_parameter_value {sdram_s1_translator} {USE_WRITEBYTEENABLE} {0};set_instance_parameter_value {sdram_s1_translator} {USE_LOCK} {0};set_instance_parameter_value {sdram_s1_translator} {USE_AV_CLKEN} {0};set_instance_parameter_value {sdram_s1_translator} {USE_UAV_CLKEN} {0};set_instance_parameter_value {sdram_s1_translator} {USE_OUTPUTENABLE} {0};set_instance_parameter_value {sdram_s1_translator} {USE_DEBUGACCESS} {0};set_instance_parameter_value {sdram_s1_translator} {USE_READRESPONSE} {0};set_instance_parameter_value {sdram_s1_translator} {USE_WRITERESPONSE} {0};set_instance_parameter_value {sdram_s1_translator} {AV_SYMBOLS_PER_WORD} {2};set_instance_parameter_value {sdram_s1_translator} {AV_ADDRESS_SYMBOLS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_BURSTCOUNT_SYMBOLS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_CONSTANT_BURST_BEHAVIOR} {0};set_instance_parameter_value {sdram_s1_translator} {UAV_CONSTANT_BURST_BEHAVIOR} {0};set_instance_parameter_value {sdram_s1_translator} {AV_REQUIRE_UNALIGNED_ADDRESSES} {0};set_instance_parameter_value {sdram_s1_translator} {AV_LINEWRAPBURSTS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_MAX_PENDING_READ_TRANSACTIONS} {7};set_instance_parameter_value {sdram_s1_translator} {AV_MAX_PENDING_WRITE_TRANSACTIONS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_BURSTBOUNDARIES} {0};set_instance_parameter_value {sdram_s1_translator} {AV_INTERLEAVEBURSTS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_BITS_PER_SYMBOL} {8};set_instance_parameter_value {sdram_s1_translator} {AV_ISBIGENDIAN} {0};set_instance_parameter_value {sdram_s1_translator} {AV_ADDRESSGROUP} {0};set_instance_parameter_value {sdram_s1_translator} {UAV_ADDRESSGROUP} {0};set_instance_parameter_value {sdram_s1_translator} {AV_REGISTEROUTGOINGSIGNALS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_REGISTERINCOMINGSIGNALS} {0};set_instance_parameter_value {sdram_s1_translator} {AV_ALWAYSBURSTMAXBURST} {0};set_instance_parameter_value {sdram_s1_translator} {CHIPSELECT_THROUGH_READLATENCY} {0};add_instance {wb_avm_bridge_m0_agent} {altera_merlin_master_agent};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ORI_BURST_SIZE_H} {101};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ORI_BURST_SIZE_L} {99};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_RESPONSE_STATUS_H} {98};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_RESPONSE_STATUS_L} {97};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_QOS_H} {86};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_QOS_L} {86};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DATA_SIDEBAND_H} {84};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DATA_SIDEBAND_L} {84};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ADDR_SIDEBAND_H} {83};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ADDR_SIDEBAND_L} {83};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURST_TYPE_H} {82};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURST_TYPE_L} {81};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_CACHE_H} {96};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_CACHE_L} {93};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_THREAD_ID_H} {89};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_THREAD_ID_L} {89};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURST_SIZE_H} {80};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURST_SIZE_L} {78};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_EXCLUSIVE} {73};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_LOCK} {72};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BEGIN_BURST} {85};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_PROTECTION_H} {92};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_PROTECTION_L} {90};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURSTWRAP_H} {77};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BURSTWRAP_L} {77};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BYTE_CNT_H} {76};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BYTE_CNT_L} {74};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ADDR_H} {67};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_ADDR_L} {36};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_COMPRESSED_READ} {68};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_POSTED} {69};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_WRITE} {70};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_TRANS_READ} {71};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DATA_H} {31};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DATA_L} {0};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BYTEEN_H} {35};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_BYTEEN_L} {32};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_SRC_ID_H} {87};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_SRC_ID_L} {87};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DEST_ID_H} {88};set_instance_parameter_value {wb_avm_bridge_m0_agent} {PKT_DEST_ID_L} {88};set_instance_parameter_value {wb_avm_bridge_m0_agent} {ST_DATA_W} {102};set_instance_parameter_value {wb_avm_bridge_m0_agent} {ST_CHANNEL_W} {1};set_instance_parameter_value {wb_avm_bridge_m0_agent} {AV_BURSTCOUNT_W} {3};set_instance_parameter_value {wb_avm_bridge_m0_agent} {AV_LINEWRAPBURSTS} {0};set_instance_parameter_value {wb_avm_bridge_m0_agent} {AV_BURSTBOUNDARIES} {0};set_instance_parameter_value {wb_avm_bridge_m0_agent} {MERLIN_PACKET_FORMAT} {ori_burst_size(101:99) response_status(98:97) cache(96:93) protection(92:90) thread_id(89) dest_id(88) src_id(87) qos(86) begin_burst(85) data_sideband(84) addr_sideband(83) burst_type(82:81) burst_size(80:78) burstwrap(77) byte_cnt(76:74) trans_exclusive(73) trans_lock(72) trans_read(71) trans_write(70) trans_posted(69) trans_compressed_read(68) addr(67:36) byteen(35:32) data(31:0)};set_instance_parameter_value {wb_avm_bridge_m0_agent} {ADDR_MAP} {<?xml version="1.0" encoding="UTF-8"?>
 <address_map>
  <slave
    id="0"
@@ -1995,7 +1995,7 @@ the requested settings for a module instance. -->
    <visible>true</visible>
    <valid>true</valid>
   </parameter>
-  <interface name="clk_sys_clk" kind="clock_sink" version="15.0">
+  <interface name="clk_sys_clk" kind="clock_sink" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -2043,7 +2043,7 @@ parameters are a RESULT of the module parameters. -->
   <interface
      name="wb_avm_bridge_reset_reset_bridge_in_reset"
      kind="reset_sink"
-     version="15.0">
+     version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -2088,7 +2088,7 @@ parameters are a RESULT of the module parameters. -->
     <role>reset</role>
    </port>
   </interface>
-  <interface name="wb_avm_bridge_m0" kind="avalon_slave" version="15.0">
+  <interface name="wb_avm_bridge_m0" kind="avalon_slave" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -2475,7 +2475,7 @@ parameters are a RESULT of the module parameters. -->
     <role>writedata</role>
    </port>
   </interface>
-  <interface name="sdram_s1" kind="avalon_master" version="15.0">
+  <interface name="sdram_s1" kind="avalon_master" version="20.1">
    <!-- The connection points exposed by a module instance for the
 particular module parameters. Connection points and their
 parameters are a RESULT of the module parameters. -->
@@ -2804,7 +2804,7 @@ parameters are a RESULT of the module parameters. -->
  <connection
    name="clk_sys.clk/sdram.clk"
    kind="clock"
-   version="15.0"
+   version="20.1"
    start="clk_sys.clk"
    end="sdram.clk">
   <parameter name="deviceFamily">
@@ -2831,7 +2831,7 @@ parameters are a RESULT of the module parameters. -->
  <connection
    name="clk_sys.clk/wb_avm_bridge.clock"
    kind="clock"
-   version="15.0"
+   version="20.1"
    start="clk_sys.clk"
    end="wb_avm_bridge.clock">
   <parameter name="deviceFamily">
@@ -2858,7 +2858,7 @@ parameters are a RESULT of the module parameters. -->
  <connection
    name="clk_sys.clk_reset/wb_avm_bridge.reset"
    kind="reset"
-   version="15.0"
+   version="20.1"
    start="clk_sys.clk_reset"
    end="wb_avm_bridge.reset">
   <parameter name="deviceFamily">
@@ -2885,7 +2885,7 @@ parameters are a RESULT of the module parameters. -->
  <connection
    name="clk_sys.clk_reset/sdram.reset"
    kind="reset"
-   version="15.0"
+   version="20.1"
    start="clk_sys.clk_reset"
    end="sdram.reset">
   <parameter name="deviceFamily">
@@ -2912,7 +2912,7 @@ parameters are a RESULT of the module parameters. -->
  <connection
    name="wb_avm_bridge.m0/mm_interconnect_0.wb_avm_bridge_m0"
    kind="avalon"
-   version="15.0"
+   version="20.1"
    start="wb_avm_bridge.m0"
    end="mm_interconnect_0.wb_avm_bridge_m0">
   <parameter name="arbitrationPriority">
@@ -2963,7 +2963,7 @@ parameters are a RESULT of the module parameters. -->
  <connection
    name="clk_sys.clk/mm_interconnect_0.clk_sys_clk"
    kind="clock"
-   version="15.0"
+   version="20.1"
    start="clk_sys.clk"
    end="mm_interconnect_0.clk_sys_clk">
   <parameter name="deviceFamily">
@@ -2990,7 +2990,7 @@ parameters are a RESULT of the module parameters. -->
  <connection
    name="mm_interconnect_0.sdram_s1/sdram.s1"
    kind="avalon"
-   version="15.0"
+   version="20.1"
    start="mm_interconnect_0.sdram_s1"
    end="sdram.s1">
   <parameter name="arbitrationPriority">
@@ -3041,7 +3041,7 @@ parameters are a RESULT of the module parameters. -->
  <connection
    name="clk_sys.clk_reset/mm_interconnect_0.wb_avm_bridge_reset_reset_bridge_in_reset"
    kind="reset"
-   version="15.0"
+   version="20.1"
    start="clk_sys.clk_reset"
    end="mm_interconnect_0.wb_avm_bridge_reset_reset_bridge_in_reset">
   <parameter name="deviceFamily">
@@ -3071,7 +3071,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IModule</subtype>
   <displayName>Clock Source</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>1</instanceCount>
@@ -3079,7 +3079,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IMutableConnectionPoint</subtype>
   <displayName>Clock Input</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>1</instanceCount>
@@ -3087,7 +3087,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IMutableConnectionPoint</subtype>
   <displayName>Reset Input</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>1</instanceCount>
@@ -3095,7 +3095,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IMutableConnectionPoint</subtype>
   <displayName>Clock Output</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>1</instanceCount>
@@ -3103,15 +3103,15 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IMutableConnectionPoint</subtype>
   <displayName>Reset Output</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>1</instanceCount>
   <name>altera_avalon_new_sdram_controller</name>
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IModule</subtype>
-  <displayName>SDRAM Controller</displayName>
-  <version>15.0</version>
+  <displayName>SDRAM Controller Intel FPGA IP</displayName>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>3</instanceCount>
@@ -3119,7 +3119,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IMutableConnectionPoint</subtype>
   <displayName>Clock Input</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>3</instanceCount>
@@ -3127,7 +3127,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IMutableConnectionPoint</subtype>
   <displayName>Reset Input</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>2</instanceCount>
@@ -3135,7 +3135,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IMutableConnectionPoint</subtype>
   <displayName>Avalon Memory Mapped Slave</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>2</instanceCount>
@@ -3143,7 +3143,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IMutableConnectionPoint</subtype>
   <displayName>Conduit</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>1</instanceCount>
@@ -3159,7 +3159,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IMutableConnectionPoint</subtype>
   <displayName>Avalon Memory Mapped Master</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>1</instanceCount>
@@ -3167,7 +3167,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IModule</subtype>
   <displayName>MM Interconnect</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>2</instanceCount>
@@ -3175,7 +3175,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IConnection</subtype>
   <displayName>Clock Connection</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>2</instanceCount>
@@ -3183,7 +3183,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IConnection</subtype>
   <displayName>Reset Connection</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>2</instanceCount>
@@ -3191,7 +3191,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IConnection</subtype>
   <displayName>Avalon Memory Mapped Connection</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>1</instanceCount>
@@ -3199,7 +3199,7 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IConnection</subtype>
   <displayName>Clock Connection</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
  <plugin>
   <instanceCount>1</instanceCount>
@@ -3207,8 +3207,8 @@ parameters are a RESULT of the module parameters. -->
   <type>com.altera.entityinterfaces.IElementClass</type>
   <subtype>com.altera.entityinterfaces.IConnection</subtype>
   <displayName>Reset Connection</displayName>
-  <version>15.0</version>
+  <version>20.1</version>
  </plugin>
- <reportVersion>15.0 153</reportVersion>
- <uniqueIdentifier>000C296B8CF30000017D1A68A0E1</uniqueIdentifier>
+ <reportVersion>20.1 720</reportVersion>
+ <uniqueIdentifier>000C2938189900000199AFE5C9BA</uniqueIdentifier>
 </EnsembleReport>

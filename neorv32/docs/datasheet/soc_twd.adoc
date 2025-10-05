@@ -1,0 +1,195 @@
+<<<
+:sectnums:
+==== Two-Wire Serial Device Controller (TWD)
+
+[cols="<3,<3,<4"]
+[grid="none"]
+|=======================
+| Hardware source files:  | neorv32_twd.vhd    |
+| Software driver files:  | neorv32_twd.c      | link:https://stnolting.github.io/neorv32/sw/neorv32__twd_8c.html[Online software reference (Doxygen)]
+|                         | neorv32_twd.h      | link:https://stnolting.github.io/neorv32/sw/neorv32__twd_8h.html[Online software reference (Doxygen)]
+| Top entity ports:       | `twd_sda_i`        | 1-bit serial data line sense input
+|                         | `twd_sda_o`        | 1-bit serial data line output (pull low only)
+|                         | `twd_scl_i`        | 1-bit serial clock line sense input
+|                         | `twd_scl_o`        | 1-bit serial clock line output (pull low only)
+| Configuration generics: | `IO_TWD_EN`        | implement TWD controller when `true`
+|                         | `IO_TWD_RX_FIFO`   | RX FIFO depth, has to be a power of two, min 1
+|                         | `IO_TWD_TX_FIFO`   | TX FIFO depth, has to be a power of two, min 1
+| CPU interrupts:         | fast IRQ channel 0 | FIFO status interrupt (see <<_processor_interrupts>>)
+|=======================
+
+**Key Features**
+
+* Philips I²C-compatible device-side controller
+* Programmable 7-bit device address
+* Optional RX/TX data FIFOs
+* Programmable interrupt conditions
+
+
+**Overview**
+
+The NEORV32 TWD implements an I2C-compatible **device-side** interface. Processor-external I2C hosts can communicate
+with this module by issuing I2C transactions. The TWD is entirely passive an only reacts on those external transmissions.
+
+.Device-Mode Only
+[NOTE]
+The NEORV32 TWD controller only supports **device mode**. Transmission are initiated by processor-external modules
+and not by an external TWD. If you are looking for a _host-mode_ module (transactions initiated by the processor)
+check out the <<_two_wire_serial_interface_controller_twi>>.
+
+
+**Theory of Operation**
+
+The TWD module provides two memory-mapped registers that are used for configuration & status check (`CTRL`) and
+for accessing transmission data (`DATA`). The `DATA` register is transparently buffered by separate RX and TX FIFOs.
+The size of those FIFOs can be configured by the `IO_TWD_RX_FIFO` and `IO_TWD_TX_FIFO` generics. Software can determine
+the FIFO size via the control register's `TWD_CTRL_FIFO_*` bits. The current status of the RX and TX FIFO can be polled
+by software via the `TWD_CTRL_RX_*` and `TWD_CTRL_TX_*` flags.
+
+The module is globally enabled by setting the control register's `TWD_CTRL_EN` bit. Clearing this bit will disable
+and reset the entire module also clearing the internal RX and TX FIFOs. Each FIFO can also be cleared individually at
+any time by setting `TWD_CTRL_CLR_RX` or `TWD_CTRL_CLR_TX` control register bits, respectively.
+
+The external two wire bus is sampled and synchronized into the processor's clock domain with a sampling frequency of
+1/8 of the processor's main clock. In order to increase the resistance to glitches the sampling frequency can be lowered
+to 1/64 of the processor clock by setting the control register's `TWD_CTRL_FSEL` bit.
+
+.Current Bus State
+[TIP]
+The current state of the I2C bus lines (SCL and SDA) can be checked by software via the `TWD_CTRL_SENSE_*` control
+register bits. Note that the TWD module needs to be enabled in order to sample the bus state.
+
+The TWD only responds to a single configurable 7bit device address that is programmed by the `TWD_CTRL_DEV_ADDR` bits.
+Specific general-call or broadcast addresses are not supported.
+
+Depending on the transaction type, data is either read from the RX FIFO and transferred to the host (**read operation**)
+or data is received from the host and written to the TX FIFO (**write operation**).
+
+
+**Read Operation: host reads data from TWD**
+
+.TWD read operation timing (not to scale, split across two lines)
+[wavedrom, format="svg", align="center"]
+----
+{signal: [
+  {name: 'SDA', wave: '10.7..7..7..7..7..7..7..1..0..x|.', node: 'a.b.....................c..d..e', data: ['A6', 'A5', 'A4', 'A3', 'A2', 'A1', 'A0']},
+  {name: 'SCL', wave: '1.0.10.10.10.10.10.10.10.10.10.|.'},
+  {},
+  {name: 'SDA', wave: 'x|.9..9..9..9..9..9..9..9..0..0.1', node: '...........................f..gh.i', data: ['D7', 'D6', 'D5', 'D4', 'D3', 'D2', 'D1', 'D0']},
+  {name: 'SCL', wave: '0|..10.10.10.10.10.10.10.10.10.1.'}
+ ],
+   edge: [
+    'a-b START',
+    'c-d READ',
+    'd-e ACK by TWD',
+    'f-g ACK by HOST',
+    'h-i STOP'
+ ]
+}
+----
+
+For a read operation the host first generates START or REPEATED-START condition. Then, the host transmits the 7 bit device
+address (green signals `A6` to `A0`) plus the read-command bit. If the transferred address matches the one programmed to to
+`TWD_CTRL_DEV_ADDR` control register bits the TWD module will response with an ACK by pulling the SDA bus line actively
+low during the 9th SCL clock pulse. If there is no address match the TWD will not interfere with the bus and will wait for
+the next START or REPEATED-START condition.
+
+For the actual data transmission the host keeps the SDA line at high state while sending the clock pulses. The TWD will
+read a byte from the internal TX FIFO and will transmit it MSB-first to the host. During the 9th clock pulse the host has
+to acknowledged the transfer (ACK) by pulling SDA low. If no ACK is received by the TWD no data is taken from the TX FIFO
+and the same byte is transmitted in the next data phase. If the TX FIFO becomes empty while the host keeps reading data,
+all-one bytes are sent back to the host. The transaction is terminated by a STOP condition.
+
+
+**Write Operation: host writes data to TWD**
+
+.TWD write operation timing (not to scale, split across two lines)
+[wavedrom, format="svg", align="center"]
+----
+{signal: [
+  {name: 'SDA', wave: '10.7..7..7..7..7..7..7..0..0..x|.', node: 'a.b.....................c..d..e', data: ['A6', 'A5', 'A4', 'A3', 'A2', 'A1', 'A0']},
+  {name: 'SCL', wave: '1.0.10.10.10.10.10.10.10.10.10.|.'},
+  {},
+  {name: 'SDA', wave: 'x|.5..5..5..5..5..5..5..5..0..0.1', node: '...........................f..gh.i', data: ['D7', 'D6', 'D5', 'D4', 'D3', 'D2', 'D1', 'D0']},
+  {name: 'SCL', wave: '0|..10.10.10.10.10.10.10.10.10.1.'}
+ ],
+   edge: [
+    'a-b START',
+    'c-d WRITE',
+    'd-e ACK by TWD',
+    'f-g ACK by TWD',
+    'h-i STOP'
+ ]
+}
+----
+
+For a write operation the host first generates START or REPEATED-START condition. Then, the host transmits the 7 bit device
+address (green signals `A6` to `A0`) plus the write-command bit. If the transferred address matches the one programmed to to
+`TWD_CTRL_DEV_ADDR` control register bits the TWD module will response with an ACK by pulling the SDA bus line actively
+low during the 9th SCL clock pulse. If there is no address match the TWD will not interfere with the bus and will wait for
+the next START or REPEATED-START condition.
+
+For the actual data transmission the host sends the write-data MSB first together with the clock pulses. During the 9th clock
+pulse the TWD will respond with an ACK by pulling SDA low. Note that the TWD will respond with a NACK if the RX FIFO is full.
+The transaction is terminated by a STOP condition.
+
+
+**Tristate Drivers**
+
+The TWD module requires two tristate drivers (actually: open-drain drivers - signals can only be actively driven low) for
+the SDA and SCL lines, which have to be implemented by the user in the setup's top module / IO ring. A generic VHDL example
+is shown below (here, `sda_io` and `scl_io` are the actual TWD bus lines, which are of type `std_logic`).
+
+.TWD Tristate Driver Example (VHDL)
+[source,VHDL]
+----
+sda_io    <= '0' when (twd_sda_o = '0') else 'Z'; -- drive
+scl_io    <= '0' when (twd_scl_o = '0') else 'Z'; -- drive
+twd_sda_i <= std_ulogic(sda_io); -- sense
+twd_scl_i <= std_ulogic(scl_io); -- sense
+----
+
+
+**TWD Interrupt**
+
+The TWD module provides a single interrupt to signal certain FIFO conditions to the CPU. The control register's
+`TWD_CTRL_IRQ_*` bits are used to enabled individual interrupt conditions. Note that all enabled conditions are
+logically OR-ed.
+
+* `TWD_CTRL_IRQ_RX_AVAIL`: trigger interrupt if at least one data byte is available in the RX FIFO
+* `TWD_CTRL_IRQ_RX_FULL`: trigger interrupt if the RX FIFO is completely full
+* `TWD_CTRL_IRQ_TX_EMPTY`: trigger interrupt if the TX FIFO is empty
+
+The interrupt remains active until all enabled interrupt-causing conditions are resolved.
+The interrupt can only trigger if the module is actually enabled (`TWD_CTRL_EN` is set).
+
+
+**Register Map**
+
+.TWD register map (`struct NEORV32_TWD`)
+[cols="<2,<1,<4,^1,<7"]
+[options="header",grid="all"]
+|=======================
+| Address | Name [C] | Bit(s), Name [C] | R/W | Function
+.19+<| `0xffea0000` .19+<| `CTRL` <|`0`     `TWD_CTRL_EN`                                   ^| r/w <| TWD enable, reset if cleared
+                                  <|`1`     `TWD_CTRL_CLR_RX`                               ^| -/w <| Clear RX FIFO, flag auto-clears
+                                  <|`2`     `TWD_CTRL_CLR_TX`                               ^| -/w <| Clear TX FIFO, flag auto-clears
+                                  <|`3`     `TWD_CTRL_FSEL`                                 ^| r/w <| Bus sample clock / filter select
+                                  <|`10:4`  `TWD_CTRL_DEV_ADDR6 : TWD_CTRL_DEV_ADDR0`       ^| r/w <| Device address (7-bit)
+                                  <|`11`    `TWD_CTRL_IRQ_RX_AVAIL`                         ^| r/w <| IRQ if RX FIFO data available
+                                  <|`12`    `TWD_CTRL_IRQ_RX_FULL`                          ^| r/w <| IRQ if RX FIFO full
+                                  <|`13`    `TWD_CTRL_IRQ_TX_EMPTY`                         ^| r/w <| IRQ if TX FIFO empty
+                                  <|`15:14` -                                               ^| r/w <|_reserved_, read as zero
+                                  <|`19:16` `TWD_CTRL_RX_FIFO_MSB : TWD_CTRL_RX_FIFO_LSB`   ^| r/- <| FIFO depth; log2(`IO_TWD_RX_FIFO`)
+                                  <|`23:20` `TWD_CTRL_TX_FIFO_MSB : TWD_CTRL_TX_FIFO_LSB`   ^| r/- <| FIFO depth; log2(`IO_TWD_TX_FIFO`)
+                                  <|`24`    -                                               ^| r/- <| _reserved_, read as zero
+                                  <|`25`    `TWD_CTRL_RX_AVAIL`                             ^| r/- <| RX FIFO data available
+                                  <|`26`    `TWD_CTRL_RX_FULL`                              ^| r/- <| RX FIFO full
+                                  <|`27`    `TWD_CTRL_TX_EMPTY`                             ^| r/- <| TX FIFO empty
+                                  <|`28`    `TWD_CTRL_TX_FULL`                              ^| r/- <| TX FIFO full
+                                  <|`29`    `TWD_CTRL_SENSE_SCL`                            ^| r/- <| current state of the SCL bus line
+                                  <|`30`    `TWD_CTRL_SENSE_SDA`                            ^| r/- <| current state of the SDA bus line
+                                  <|`31`    `TWD_CTRL_BUSY`                                 ^| r/- <| bus engine is busy (transaction in progress)
+.2+<| `0xffea0004` .2+<| `DATA`   <|`7:0`   `TWD_DATA_MSB : TWD_DATA_LSB`                   ^| r/w <| RX/TX data FIFO access
+                                  <|`31:8`  -                                               ^| r/- <| _reserved_, read as zero
+|=======================

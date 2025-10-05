@@ -1,62 +1,39 @@
-// #################################################################################################
-// # << NEORV32: neorv32_onewire.c - 1-Wire Interface Controller HW Driver HW Driver (Source) >>   #
-// # ********************************************************************************************* #
-// # BSD 3-Clause License                                                                          #
-// #                                                                                               #
-// # Copyright (c) 2022, Stephan Nolting. All rights reserved.                                     #
-// #                                                                                               #
-// # Redistribution and use in source and binary forms, with or without modification, are          #
-// # permitted provided that the following conditions are met:                                     #
-// #                                                                                               #
-// # 1. Redistributions of source code must retain the above copyright notice, this list of        #
-// #    conditions and the following disclaimer.                                                   #
-// #                                                                                               #
-// # 2. Redistributions in binary form must reproduce the above copyright notice, this list of     #
-// #    conditions and the following disclaimer in the documentation and/or other materials        #
-// #    provided with the distribution.                                                            #
-// #                                                                                               #
-// # 3. Neither the name of the copyright holder nor the names of its contributors may be used to  #
-// #    endorse or promote products derived from this software without specific prior written      #
-// #    permission.                                                                                #
-// #                                                                                               #
-// # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS   #
-// # OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF               #
-// # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE    #
-// # COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,     #
-// # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE #
-// # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED    #
-// # AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING     #
-// # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED  #
-// # OF THE POSSIBILITY OF SUCH DAMAGE.                                                            #
-// # ********************************************************************************************* #
-// # The NEORV32 Processor - https://github.com/stnolting/neorv32              (c) Stephan Nolting #
-// #################################################################################################
+// ================================================================================ //
+// The NEORV32 RISC-V Processor - https://github.com/stnolting/neorv32              //
+// Copyright (c) NEORV32 contributors.                                              //
+// Copyright (c) 2020 - 2025 Stephan Nolting. All rights reserved.                  //
+// Licensed under the BSD-3-Clause license, see LICENSE for details.                //
+// SPDX-License-Identifier: BSD-3-Clause                                            //
+// ================================================================================ //
 
-
-/**********************************************************************//**
+/**
  * @file neorv32_onewire.c
  * @brief 1-Wire Interface Controller (ONEWIRE) HW driver source file.
- *
- * @note These functions should only be used if the ONEWIRE unit was synthesized (IO_ONEWIRE_EN = true).
- **************************************************************************/
+ */
 
-#include "neorv32.h"
-#include "neorv32_onewire.h"
+#include <neorv32.h>
 
 
 /**********************************************************************//**
  * Check if ONEWIRE controller was synthesized.
  *
- * @return 0 if ONEWIRE was not synthesized, 1 if ONEWIRE is available.
+ * @return 0 if ONEWIRE was not synthesized, non-zero if ONEWIRE is available.
  **************************************************************************/
 int neorv32_onewire_available(void) {
 
-  if (NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_ONEWIRE)) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
+  return (int)(NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_ONEWIRE));
+}
+
+
+/**********************************************************************//**
+ * Get ONEWIRE FIFO depth.
+ *
+ * @return FIFO depth (number of entries), zero if no FIFO implemented
+ **************************************************************************/
+int neorv32_onewire_get_fifo_depth(void) {
+
+  uint32_t tmp = (NEORV32_ONEWIRE->CTRL >> ONEWIRE_CTRL_FIFO_LSB) & 0x0f;
+  return (int)(1 << tmp);
 }
 
 
@@ -72,12 +49,11 @@ int neorv32_onewire_setup(uint32_t t_base) {
 
   // reset
   NEORV32_ONEWIRE->CTRL = 0;
-  NEORV32_ONEWIRE->DATA = 0;
 
   uint32_t t_tick;
   uint32_t clkdiv;
   uint32_t clk_prsc_sel   = 0; // initial prsc = CLK/2
-  uint32_t t_clock_x250ps = (4 * 1000 * 1000 * 1000U) / NEORV32_SYSINFO->CLK; // t_clock in multiples of 0.25 ns
+  uint32_t t_clock_x250ps = (4 * 1000 * 1000 * 1000U) / neorv32_sysinfo_get_clk(); // t_clock in multiples of 0.25 ns
 
   // find best base tick configuration
   while (1) {
@@ -126,6 +102,15 @@ void neorv32_onewire_disable(void) {
 
 
 /**********************************************************************//**
+ * Clear RTX FIFO.
+ **************************************************************************/
+void neorv32_onewire_flush(void) {
+
+  NEORV32_ONEWIRE->CTRL &= ~(1 << ONEWIRE_CTRL_CLEAR);
+}
+
+
+/**********************************************************************//**
  * Get current bus state.
  *
  * @return 1 if bus is high, 0 if bus is low.
@@ -140,16 +125,8 @@ int neorv32_onewire_sense(void) {
   }
 }
 
-
-// ----------------------------------------------------------------------------------------------------------------------------
-// NON-BLOCKING functions
-// ----------------------------------------------------------------------------------------------------------------------------
-
-
 /**********************************************************************//**
  * Check if ONEWIRE module is busy.
- *
- * @note This function is non-blocking.
  *
  * @return 0 if not busy, 1 if busy.
  **************************************************************************/
@@ -165,6 +142,11 @@ int neorv32_onewire_busy(void) {
 }
 
 
+// ----------------------------------------------------------------------------------------------------------------------------
+// NON-BLOCKING functions
+// ----------------------------------------------------------------------------------------------------------------------------
+
+
 /**********************************************************************//**
  * Initiate reset pulse.
  *
@@ -173,7 +155,7 @@ int neorv32_onewire_busy(void) {
 void neorv32_onewire_reset(void) {
 
   // trigger reset-pulse operation
-  NEORV32_ONEWIRE->CTRL |= 1 << ONEWIRE_CTRL_TRIG_RST;
+  NEORV32_ONEWIRE->DCMD = ONEWIRE_CMD_RESET << ONEWIRE_DCMD_CMD_LO;
 }
 
 
@@ -187,7 +169,7 @@ void neorv32_onewire_reset(void) {
 int neorv32_onewire_reset_get_presence(void) {
 
   // check presence bit
-  if (NEORV32_ONEWIRE->CTRL & (1 << ONEWIRE_CTRL_PRESENCE)) {
+  if (NEORV32_ONEWIRE->DCMD & (1 << ONEWIRE_DCMD_PRESENCE)) {
     return 0;
   }
   else {
@@ -203,11 +185,8 @@ int neorv32_onewire_reset_get_presence(void) {
  **************************************************************************/
 void neorv32_onewire_read_bit(void) {
 
-  // output all-one
-  NEORV32_ONEWIRE->DATA = 0xff;
-
-  // trigger bit operation
-  NEORV32_ONEWIRE->CTRL |= (1 << ONEWIRE_CTRL_TRIG_BIT);
+  // trigger bit operation with data = all-one
+  NEORV32_ONEWIRE->DCMD = (ONEWIRE_CMD_BIT << ONEWIRE_DCMD_CMD_LO) | (0xff << ONEWIRE_DCMD_DATA_LSB);
 }
 
 
@@ -221,7 +200,7 @@ void neorv32_onewire_read_bit(void) {
 uint8_t neorv32_onewire_read_bit_get(void) {
 
   // return read bit
-  if (NEORV32_ONEWIRE->DATA & (1 << 7)) { // LSB first -> read bit is in MSB
+  if (NEORV32_ONEWIRE->DCMD & (1 << ONEWIRE_DCMD_DATA_MSB)) { // LSB first -> read bit is in MSB
     return 1;
   }
   else {
@@ -239,16 +218,13 @@ uint8_t neorv32_onewire_read_bit_get(void) {
  **************************************************************************/
 void neorv32_onewire_write_bit(uint8_t bit) {
 
-  // set replicated bit
+  // set replicated bit and trigger bit operation
   if (bit) {
-    NEORV32_ONEWIRE->DATA = 0xff;
+    NEORV32_ONEWIRE->DCMD = (ONEWIRE_CMD_BIT << ONEWIRE_DCMD_CMD_LO) | (0xff << ONEWIRE_DCMD_DATA_LSB);
   }
   else {
-    NEORV32_ONEWIRE->DATA = 0x00;
+    NEORV32_ONEWIRE->DCMD = (ONEWIRE_CMD_BIT << ONEWIRE_DCMD_CMD_LO) | (0x00 << ONEWIRE_DCMD_DATA_LSB);
   }
-
-  // trigger bit operation
-  NEORV32_ONEWIRE->CTRL |= (1 << ONEWIRE_CTRL_TRIG_BIT);
 }
 
 
@@ -259,11 +235,8 @@ void neorv32_onewire_write_bit(uint8_t bit) {
  **************************************************************************/
 void neorv32_onewire_read_byte(void) {
 
-  // output all-one
-  NEORV32_ONEWIRE->DATA = 0xff;
-
-  //trigger byte operation
-  NEORV32_ONEWIRE->CTRL |= (1 << ONEWIRE_CTRL_TRIG_BYTE);
+  // output all-one and trigger byte operation
+  NEORV32_ONEWIRE->DCMD = (ONEWIRE_CMD_BYTE << ONEWIRE_DCMD_CMD_LO) | (0xff << ONEWIRE_DCMD_DATA_LSB);
 }
 
 
@@ -277,7 +250,7 @@ void neorv32_onewire_read_byte(void) {
 uint8_t neorv32_onewire_read_byte_get(void) {
 
   // return read bit
-  return (uint8_t)(NEORV32_ONEWIRE->DATA);
+  return (uint8_t)(NEORV32_ONEWIRE->DCMD);
 }
 
 
@@ -290,11 +263,8 @@ uint8_t neorv32_onewire_read_byte_get(void) {
  **************************************************************************/
 void neorv32_onewire_write_byte(uint8_t byte) {
 
-  // TX data
-  NEORV32_ONEWIRE->DATA = (uint32_t)byte;
-
   // and trigger byte operation
-  NEORV32_ONEWIRE->CTRL |= (1 << ONEWIRE_CTRL_TRIG_BYTE);
+  NEORV32_ONEWIRE->DCMD = (ONEWIRE_CMD_BYTE << ONEWIRE_DCMD_CMD_LO) | ((uint32_t)byte << ONEWIRE_DCMD_DATA_LSB);
 }
 
 
@@ -357,6 +327,9 @@ void neorv32_onewire_write_bit_blocking(uint8_t bit) {
 
   // wait for operation to complete
   while (neorv32_onewire_busy());
+
+  // discard received data
+  neorv32_onewire_read_byte_get();
 }
 
 
@@ -394,4 +367,7 @@ void neorv32_onewire_write_byte_blocking(uint8_t byte) {
 
   // wait for operation to complete
   while (neorv32_onewire_busy());
+
+  // discard received data
+  neorv32_onewire_read_byte_get();
 }

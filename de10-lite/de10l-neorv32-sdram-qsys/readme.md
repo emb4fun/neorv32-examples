@@ -5,7 +5,7 @@
 | Board   | [Terasic DE10-Lite](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=english&No=1021) |
 | :------ | :---------- |
 | FPGA    | MAX10 `10M50DAF484C7G` |
-| Quartus | 15.0.2      |
+| Quartus | 20.1.1      |
 | clk_i   | 90 MHz     |
 
 #### Memory Address Map:
@@ -37,4 +37,4 @@ A memory test was also implemented. The terminal output looks like:
 
 ## Embedded Studio for RISC-V
 
-A description of how to use Embedded Studio for RISC-V can be find [here](https://www.emb4fun.de/archive/ses4rv/index.html).
+A description of how to use Embedded Studio for RISC-V can be find [here](https://www.emb4fun.de/riscv/ses4rv/index.html).

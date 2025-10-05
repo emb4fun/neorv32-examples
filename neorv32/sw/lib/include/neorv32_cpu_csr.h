@@ -1,45 +1,20 @@
-// #################################################################################################
-// # << NEORV32: neorv32_cpu_csr.h - Control and Status Registers Definitions >>                   #
-// # ********************************************************************************************* #
-// # BSD 3-Clause License                                                                          #
-// #                                                                                               #
-// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
-// #                                                                                               #
-// # Redistribution and use in source and binary forms, with or without modification, are          #
-// # permitted provided that the following conditions are met:                                     #
-// #                                                                                               #
-// # 1. Redistributions of source code must retain the above copyright notice, this list of        #
-// #    conditions and the following disclaimer.                                                   #
-// #                                                                                               #
-// # 2. Redistributions in binary form must reproduce the above copyright notice, this list of     #
-// #    conditions and the following disclaimer in the documentation and/or other materials        #
-// #    provided with the distribution.                                                            #
-// #                                                                                               #
-// # 3. Neither the name of the copyright holder nor the names of its contributors may be used to  #
-// #    endorse or promote products derived from this software without specific prior written      #
-// #    permission.                                                                                #
-// #                                                                                               #
-// # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS   #
-// # OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF               #
-// # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE    #
-// # COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,     #
-// # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE #
-// # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED    #
-// # AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING     #
-// # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED  #
-// # OF THE POSSIBILITY OF SUCH DAMAGE.                                                            #
-// # ********************************************************************************************* #
-// # The NEORV32 Processor - https://github.com/stnolting/neorv32              (c) Stephan Nolting #
-// #################################################################################################
+// ================================================================================ //
+// The NEORV32 RISC-V Processor - https://github.com/stnolting/neorv32              //
+// Copyright (c) NEORV32 contributors.                                              //
+// Copyright (c) 2020 - 2025 Stephan Nolting. All rights reserved.                  //
+// Licensed under the BSD-3-Clause license, see LICENSE for details.                //
+// SPDX-License-Identifier: BSD-3-Clause                                            //
+// ================================================================================ //
 
-
-/**********************************************************************//**
+/**
  * @file neorv32_cpu_csr.h
  * @brief Control and Status Registers (CSR) definitions.
- **************************************************************************/
+ */
 
-#ifndef neorv32_cpu_csr_h
-#define neorv32_cpu_csr_h
+#ifndef NEORV32_CPU_CSR_H
+#define NEORV32_CPU_CSR_H
+
+#include <stdint.h>
 
 
 /**********************************************************************//**
@@ -47,49 +22,51 @@
  **************************************************************************/
 enum NEORV32_CSR_enum {
   /* floating-point unit control and status */
-  CSR_FFLAGS         = 0x001, /**< 0x001 - fflags: Floating-point accrued exception flags */
+  CSR_FFLAGS         = 0x001, /**< 0x001 - fflags: Floating-point accrued exception flags (#NEORV32_CSR_FFLAGS_enum) */
   CSR_FRM            = 0x002, /**< 0x002 - frm:    Floating-point dynamic rounding mode */
   CSR_FCSR           = 0x003, /**< 0x003 - fcsr:   Floating-point control/status register (frm + fflags) */
 
   /* machine control and status */
-  CSR_MSTATUS        = 0x300, /**< 0x300 - mstatus:       Machine status register */
-  CSR_MISA           = 0x301, /**< 0x301 - misa:          Machine ISA and extensions */
-  CSR_MIE            = 0x304, /**< 0x304 - mie:           Machine interrupt-enable register */
+  CSR_MSTATUS        = 0x300, /**< 0x300 - mstatus:       Machine status register (#NEORV32_CSR_MSTATUS_enum) */
+  CSR_MISA           = 0x301, /**< 0x301 - misa:          Machine ISA and extensions (#NEORV32_CSR_MISA_enum) */
+  CSR_MIE            = 0x304, /**< 0x304 - mie:           Machine interrupt-enable register (#NEORV32_CSR_MIE_enum) */
   CSR_MTVEC          = 0x305, /**< 0x305 - mtvec:         Machine trap-handler base address */
-  CSR_MCOUNTEREN     = 0x306, /**< 0x305 - mcounteren:    Machine counter enable register */
+  CSR_MCOUNTEREN     = 0x306, /**< 0x305 - mcounteren:    Machine counter enable register (#NEORV32_CSR_MCOUNTEREN_enum) */
   CSR_MSTATUSH       = 0x310, /**< 0x310 - mstatush:      Machine status register - high word */
-  CSR_MCOUNTINHIBIT  = 0x320, /**< 0x320 - mcountinhibit: Machine counter-inhibit register */
-  CSR_MCYCLECFG      = 0x321, /**< 0x321 - mcyclecfg:     Machine cycle counter privilege mode filtering - low word */
-  CSR_MINSTRETCFG    = 0x322, /**< 0x322 - minstretcfg:   Machine instret counter privilege mode filtering - low word */
+  CSR_MCOUNTINHIBIT  = 0x320, /**< 0x320 - mcountinhibit: Machine counter-inhibit register (#NEORV32_CSR_MCOUNTINHIBIT_enum) */
+
+  /* machine configuration */
+  CSR_MENVCFG        = 0x30a, /**< 0x30a - menvcfg:  Machine environment configuration register - low word */
+  CSR_MENVCFGH       = 0x31a, /**< 0x31a - menvcfgh: Machine environment configuration register - high word */
 
   /* hardware performance monitors - event configuration */
-  CSR_MHPMEVENT3     = 0x323, /**< 0x323 - mhpmevent3:  Machine hardware performance monitor event selector 3  */
-  CSR_MHPMEVENT4     = 0x324, /**< 0x324 - mhpmevent4:  Machine hardware performance monitor event selector 4  */
-  CSR_MHPMEVENT5     = 0x325, /**< 0x325 - mhpmevent5:  Machine hardware performance monitor event selector 5  */
-  CSR_MHPMEVENT6     = 0x326, /**< 0x326 - mhpmevent6:  Machine hardware performance monitor event selector 6  */
-  CSR_MHPMEVENT7     = 0x327, /**< 0x327 - mhpmevent7:  Machine hardware performance monitor event selector 7  */
-  CSR_MHPMEVENT8     = 0x328, /**< 0x328 - mhpmevent8:  Machine hardware performance monitor event selector 8  */
-  CSR_MHPMEVENT9     = 0x329, /**< 0x329 - mhpmevent9:  Machine hardware performance monitor event selector 9  */
-  CSR_MHPMEVENT10    = 0x32a, /**< 0x32a - mhpmevent10: Machine hardware performance monitor event selector 10 */
-  CSR_MHPMEVENT11    = 0x32b, /**< 0x32b - mhpmevent11: Machine hardware performance monitor event selector 11 */
-  CSR_MHPMEVENT12    = 0x32c, /**< 0x32c - mhpmevent12: Machine hardware performance monitor event selector 12 */
-  CSR_MHPMEVENT13    = 0x32d, /**< 0x32d - mhpmevent13: Machine hardware performance monitor event selector 13 */
-  CSR_MHPMEVENT14    = 0x32e, /**< 0x32e - mhpmevent14: Machine hardware performance monitor event selector 14 */
-  CSR_MHPMEVENT15    = 0x32f, /**< 0x32f - mhpmevent15: Machine hardware performance monitor event selector 15 */
+  CSR_MHPMEVENT3     = 0x323, /**< 0x323 - mhpmevent3:  Machine hardware performance monitor event selector 3  (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT4     = 0x324, /**< 0x324 - mhpmevent4:  Machine hardware performance monitor event selector 4  (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT5     = 0x325, /**< 0x325 - mhpmevent5:  Machine hardware performance monitor event selector 5  (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT6     = 0x326, /**< 0x326 - mhpmevent6:  Machine hardware performance monitor event selector 6  (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT7     = 0x327, /**< 0x327 - mhpmevent7:  Machine hardware performance monitor event selector 7  (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT8     = 0x328, /**< 0x328 - mhpmevent8:  Machine hardware performance monitor event selector 8  (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT9     = 0x329, /**< 0x329 - mhpmevent9:  Machine hardware performance monitor event selector 9  (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT10    = 0x32a, /**< 0x32a - mhpmevent10: Machine hardware performance monitor event selector 10 (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT11    = 0x32b, /**< 0x32b - mhpmevent11: Machine hardware performance monitor event selector 11 (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT12    = 0x32c, /**< 0x32c - mhpmevent12: Machine hardware performance monitor event selector 12 (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT13    = 0x32d, /**< 0x32d - mhpmevent13: Machine hardware performance monitor event selector 13 (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT14    = 0x32e, /**< 0x32e - mhpmevent14: Machine hardware performance monitor event selector 14 (#NEORV32_HPMCNT_EVENT_enum) */
+  CSR_MHPMEVENT15    = 0x32f, /**< 0x32f - mhpmevent15: Machine hardware performance monitor event selector 15 (#NEORV32_HPMCNT_EVENT_enum) */
 
   /* machine trap control */
   CSR_MSCRATCH       = 0x340, /**< 0x340 - mscratch: Machine scratch register */
   CSR_MEPC           = 0x341, /**< 0x341 - mepc:     Machine exception program counter */
-  CSR_MCAUSE         = 0x342, /**< 0x342 - mcause:   Machine trap cause */
+  CSR_MCAUSE         = 0x342, /**< 0x342 - mcause:   Machine trap cause (#NEORV32_EXCEPTION_CODES_enum) */
   CSR_MTVAL          = 0x343, /**< 0x343 - mtval:    Machine trap value */
-  CSR_MIP            = 0x344, /**< 0x344 - mip:      Machine interrupt pending register */
+  CSR_MIP            = 0x344, /**< 0x344 - mip:      Machine interrupt pending register (#NEORV32_CSR_MIP_enum) */
   CSR_MTINST         = 0x34a, /**< 0x34a - mtinst:   Machine trap instruction */
 
   /* physical memory protection */
-  CSR_PMPCFG0        = 0x3a0, /**< 0x3a0 - pmpcfg0: Physical memory protection configuration register 0 (regions 0..3) */
-  CSR_PMPCFG1        = 0x3a1, /**< 0x3a1 - pmpcfg1: Physical memory protection configuration register 1 (regions 4..7) */
-  CSR_PMPCFG2        = 0x3a2, /**< 0x3a2 - pmpcfg2: Physical memory protection configuration register 2 (regions 8..11) */
-  CSR_PMPCFG3        = 0x3a3, /**< 0x3a3 - pmpcfg3: Physical memory protection configuration register 3 (regions 12..15) */
+  CSR_PMPCFG0        = 0x3a0, /**< 0x3a0 - pmpcfg0: Physical memory protection configuration register 0: regions 0..3 (#NEORV32_PMPCFG_ATTRIBUTES_enum, #NEORV32_PMP_MODES_enum) */
+  CSR_PMPCFG1        = 0x3a1, /**< 0x3a1 - pmpcfg1: Physical memory protection configuration register 1: regions 4..7 (#NEORV32_PMPCFG_ATTRIBUTES_enum, #NEORV32_PMP_MODES_enum) */
+  CSR_PMPCFG2        = 0x3a2, /**< 0x3a2 - pmpcfg2: Physical memory protection configuration register 2: regions 8..11 (#NEORV32_PMPCFG_ATTRIBUTES_enum, #NEORV32_PMP_MODES_enum) */
+  CSR_PMPCFG3        = 0x3a3, /**< 0x3a3 - pmpcfg3: Physical memory protection configuration register 3: regions 12..15 (#NEORV32_PMPCFG_ATTRIBUTES_enum, #NEORV32_PMP_MODES_enum) */
 
   CSR_PMPADDR0       = 0x3b0, /**< 0x3b0 - pmpaddr0: Physical memory protection address register 0 */
   CSR_PMPADDR1       = 0x3b1, /**< 0x3b1 - pmpaddr1: Physical memory protection address register 1 */
@@ -108,28 +85,16 @@ enum NEORV32_CSR_enum {
   CSR_PMPADDR14      = 0x3be, /**< 0x3be - pmpaddr14: Physical memory protection address register 14 */
   CSR_PMPADDR15      = 0x3bf, /**< 0x3bf - pmpaddr15: Physical memory protection address register 15 */
 
-  /* machine control and status - continued */
-  CSR_MCYCLECFGH     = 0x721, /**< 0x721 - mcyclecfgh:   Machine cycle counter privilege mode filtering - high word */
-  CSR_MINSTRETCFGH   = 0x722, /**< 0x722 - minstretcfgh: Machine instret counter privilege mode filtering - high word */
-
   /* on-chip debugger - hardware trigger module */
   CSR_TSELECT        = 0x7a0, /**< 0x7a0 - tselect:  Trigger select */
   CSR_TDATA1         = 0x7a1, /**< 0x7a1 - tdata1:   Trigger data register 0 */
   CSR_TDATA2         = 0x7a2, /**< 0x7a2 - tdata2:   Trigger data register 1 */
-  CSR_TDATA3         = 0x7a3, /**< 0x7a3 - tdata3:   Trigger data register 2 */
   CSR_TINFO          = 0x7a4, /**< 0x7a4 - tinfo:    Trigger info */
-  CSR_TCONTROL       = 0x7a5, /**< 0x7a5 - tcontrol: Trigger control */
 
   /* CPU debug mode CSRs - not accessible by software running outside of debug mode */
   CSR_DCSR           = 0x7b0, /**< 0x7b0 - dcsr:      Debug status and control register */
   CSR_DPC            = 0x7b1, /**< 0x7b1 - dpc:       Debug program counter */
   CSR_DSCRATCH0      = 0x7b2, /**< 0x7b2 - dscratch0: Debug scratch register */
-
-  /* custom functions unit (CFU) registers */
-  CSR_CFUREG0        = 0x800, /**< 0x800 - cfureg0: custom CFU CSR 0 */
-  CSR_CFUREG1        = 0x801, /**< 0x801 - cfureg1: custom CFU CSR 1 */
-  CSR_CFUREG2        = 0x802, /**< 0x802 - cfureg2: custom CFU CSR 2 */
-  CSR_CFUREG3        = 0x803, /**< 0x803 - cfureg3: custom CFU CSR 3 */
 
   /* machine counters and timers */
   CSR_MCYCLE         = 0xb00, /**< 0xb00 - mcycle:        Machine cycle counter low word */
@@ -167,48 +132,25 @@ enum NEORV32_CSR_enum {
   /* user counters and timers */
   CSR_CYCLE          = 0xc00, /**< 0xc00 - cycle:        User cycle counter low word */
   CSR_INSTRET        = 0xc02, /**< 0xc02 - instret:      User instructions-retired counter low word */
-  CSR_HPMCOUNTER3    = 0xc03, /**< 0xc03 - hpmcounter3:  User hardware performance monitor 3  counter low word */
-  CSR_HPMCOUNTER4    = 0xc04, /**< 0xc04 - hpmcounter4:  User hardware performance monitor 4  counter low word */
-  CSR_HPMCOUNTER5    = 0xc05, /**< 0xc05 - hpmcounter5:  User hardware performance monitor 5  counter low word */
-  CSR_HPMCOUNTER6    = 0xc06, /**< 0xc06 - hpmcounter6:  User hardware performance monitor 6  counter low word */
-  CSR_HPMCOUNTER7    = 0xc07, /**< 0xc07 - hpmcounter7:  User hardware performance monitor 7  counter low word */
-  CSR_HPMCOUNTER8    = 0xc08, /**< 0xc08 - hpmcounter8:  User hardware performance monitor 8  counter low word */
-  CSR_HPMCOUNTER9    = 0xc09, /**< 0xc09 - hpmcounter9:  User hardware performance monitor 9  counter low word */
-  CSR_HPMCOUNTER10   = 0xc0a, /**< 0xc0a - hpmcounter10: User hardware performance monitor 10 counter low word */
-  CSR_HPMCOUNTER11   = 0xc0b, /**< 0xc0b - hpmcounter11: User hardware performance monitor 11 counter low word */
-  CSR_HPMCOUNTER12   = 0xc0c, /**< 0xc0c - hpmcounter12: User hardware performance monitor 12 counter low word */
-  CSR_HPMCOUNTER13   = 0xc0d, /**< 0xc0d - hpmcounter13: User hardware performance monitor 13 counter low word */
-  CSR_HPMCOUNTER14   = 0xc0e, /**< 0xc0e - hpmcounter14: User hardware performance monitor 14 counter low word */
-  CSR_HPMCOUNTER15   = 0xc0f, /**< 0xc0f - hpmcounter15: User hardware performance monitor 15 counter low word */
 
   CSR_CYCLEH         = 0xc80, /**< 0xc80 - cycleh:        User cycle counter high word */
   CSR_INSTRETH       = 0xc82, /**< 0xc82 - instreth:      User instructions-retired counter high word */
-  CSR_HPMCOUNTER3H   = 0xc83, /**< 0xc83 - hpmcounter3h:  User hardware performance monitor 3  counter high word */
-  CSR_HPMCOUNTER4H   = 0xc84, /**< 0xc84 - hpmcounter4h:  User hardware performance monitor 4  counter high word */
-  CSR_HPMCOUNTER5H   = 0xc85, /**< 0xc85 - hpmcounter5h:  User hardware performance monitor 5  counter high word */
-  CSR_HPMCOUNTER6H   = 0xc86, /**< 0xc86 - hpmcounter6h:  User hardware performance monitor 6  counter high word */
-  CSR_HPMCOUNTER7H   = 0xc87, /**< 0xc87 - hpmcounter7h:  User hardware performance monitor 7  counter high word */
-  CSR_HPMCOUNTER8H   = 0xc88, /**< 0xc88 - hpmcounter8h:  User hardware performance monitor 8  counter high word */
-  CSR_HPMCOUNTER9H   = 0xc89, /**< 0xc89 - hpmcounter9h:  User hardware performance monitor 9  counter high word */
-  CSR_HPMCOUNTER10H  = 0xc8a, /**< 0xc8a - hpmcounter10h: User hardware performance monitor 10 counter high word */
-  CSR_HPMCOUNTER11H  = 0xc8b, /**< 0xc8b - hpmcounter11h: User hardware performance monitor 11 counter high word */
-  CSR_HPMCOUNTER12H  = 0xc8c, /**< 0xc8c - hpmcounter12h: User hardware performance monitor 12 counter high word */
-  CSR_HPMCOUNTER13H  = 0xc8d, /**< 0xc8d - hpmcounter13h: User hardware performance monitor 13 counter high word */
-  CSR_HPMCOUNTER14H  = 0xc8e, /**< 0xc8e - hpmcounter14h: User hardware performance monitor 14 counter high word */
-  CSR_HPMCOUNTER15H  = 0xc8f, /**< 0xc8f - hpmcounter15h: User hardware performance monitor 15 counter high word */
 
-  /* machine information registers */
+  /* machine information */
   CSR_MVENDORID      = 0xf11, /**< 0xf11 - mvendorid:  Machine vendor ID */
   CSR_MARCHID        = 0xf12, /**< 0xf12 - marchid:    Machine architecture ID */
   CSR_MIMPID         = 0xf13, /**< 0xf13 - mimpid:     Machine implementation ID */
   CSR_MHARTID        = 0xf14, /**< 0xf14 - mhartid:    Machine hardware thread ID */
   CSR_MCONFIGPTR     = 0xf15, /**< 0xf15 - mconfigptr: Machine configuration pointer register */
-  CSR_MXISA          = 0xfc0  /**< 0xfc0 - mxisa:      Machine extended ISA and extensions (NEORV32-specific) */
+
+  /* NEORV32-specific */
+  CSR_MXCSR          = 0xbc0, /**< 0xbc0 - mxcsr: Machine control and status register (#NEORV32_CSR_MXCSR_enum) */
+  CSR_MXISA          = 0xfc0  /**< 0xfc0 - mxisa: Machine extended ISA and extensions (#NEORV32_CSR_MXISA_enum) */
 };
 
 
 /**********************************************************************//**
- * CPU <b>fflags (fcsr)</b> CSR (r/w): FPU accrued exception flags
+ * CPU fflags (fcsr)</b> CSR (r/w): FPU accrued exception flags
  **************************************************************************/
 enum NEORV32_CSR_FFLAGS_enum {
   CSR_FFLAGS_NX = 0, /**< CPU fflags CSR (0): NX - inexact (r/w) */
@@ -220,7 +162,16 @@ enum NEORV32_CSR_FFLAGS_enum {
 
 
 /**********************************************************************//**
- * CPU <b>mstatus</b> CSR (r/w): Machine status
+ * CPU mcountern CSR (r/w): Machine counter-enable register
+ **************************************************************************/
+enum NEORV32_CSR_MCOUNTEREN_enum {
+  CSR_MCOUNTEREN_CY = 0, /**< CPU mcountern CSR (0): CY - cycle counter (r/w) */
+  CSR_MCOUNTEREN_IR = 2  /**< CPU mcountern CSR (2): IR instruction-retired counter (r/w) */
+};
+
+
+/**********************************************************************//**
+ * CPU mstatus CSR (r/w): Machine status - low word
  **************************************************************************/
 enum NEORV32_CSR_MSTATUS_enum {
   CSR_MSTATUS_MIE   =  3, /**< CPU mstatus CSR  (3): MIE - Machine interrupt enable bit (r/w) */
@@ -233,7 +184,7 @@ enum NEORV32_CSR_MSTATUS_enum {
 
 
 /**********************************************************************//**
- * CPU <b>mcountinhibit</b> CSR (r/w): Machine counter-inhibit
+ * CPU mcountinhibitCSR (r/w): Machine counter-inhibit
  **************************************************************************/
 enum NEORV32_CSR_MCOUNTINHIBIT_enum {
   CSR_MCOUNTINHIBIT_CY    = 0,  /**< CPU mcountinhibit CSR (0): CY - Enable auto-increment of [m]cycle[h]   CSR when set (r/w) */
@@ -272,25 +223,7 @@ enum NEORV32_CSR_MCOUNTINHIBIT_enum {
 
 
 /**********************************************************************//**
- * CPU <b>mcyclecfgh</b> CSR (r/w): Machine cycle counter privilege mode filtering
- **************************************************************************/
-enum NEORV32_CSR_MCYCLECFGH_enum {
-  CSR_MCYCLECFGH_UINH = 28, /**< CPU mcyclecfgh CSR (28): UINH - Inhibit cycle counter when in user-mode when set (r/w) */
-  CSR_MCYCLECFGH_MINH = 30  /**< CPU mcyclecfgh CSR (30): MINH - Inhibit cycle counter when in machine-mode when set (r/w) */
-};
-
-
-/**********************************************************************//**
- * CPU <b>minstretcfgh</b> CSR (r/w): Machine instret counter privilege mode filtering
- **************************************************************************/
-enum NEORV32_CSR_MINSTRETCFGH_enum {
-  CSR_MINSTRETCFGH_UINH = 28, /**< CPU minstretcfgh CSR (28): UINH - Inhibit instret counter when in user-mode when set (r/w) */
-  CSR_MINSTRETCFGH_MINH = 30  /**< CPU minstretcfgh CSR (30): MINH - Inhibit instret counter when in machine-mode when set (r/w) */
-};
-
-
-/**********************************************************************//**
- * CPU <b>mie</b> CSR (r/w): Machine interrupt enable
+ * CPU mie CSR (r/w): Machine interrupt enable
  **************************************************************************/
 enum NEORV32_CSR_MIE_enum {
   CSR_MIE_MSIE    =  3, /**< CPU mie CSR  (3): MSIE - Machine software interrupt enable (r/w) */
@@ -318,43 +251,41 @@ enum NEORV32_CSR_MIE_enum {
 
 
 /**********************************************************************//**
- * CPU <b>mip</b> CSR (r/c): Machine interrupt pending
+ * CPU mip CSR (r/-): Machine interrupt pending
  **************************************************************************/
 enum NEORV32_CSR_MIP_enum {
-  CSR_MIP_MSIP    =  3, /**< CPU mip CSR  (3): MSIP - Machine software interrupt pending (r/c) */
-  CSR_MIP_MTIP    =  7, /**< CPU mip CSR  (7): MTIP - Machine timer interrupt pending (r/c) */
-  CSR_MIP_MEIP    = 11, /**< CPU mip CSR (11): MEIP - Machine external interrupt pending (r/c) */
+  CSR_MIP_MSIP    =  3, /**< CPU mip CSR  (3): MSIP - Machine software interrupt pending (r/-) */
+  CSR_MIP_MTIP    =  7, /**< CPU mip CSR  (7): MTIP - Machine timer interrupt pending (r/-) */
+  CSR_MIP_MEIP    = 11, /**< CPU mip CSR (11): MEIP - Machine external interrupt pending (r/-) */
 
   /* NEORV32-specific extension: Fast Interrupt Requests (FIRQ) */
-  CSR_MIP_FIRQ0P  = 16, /**< CPU mip CSR (16): FIRQ0P - Fast interrupt channel 0 pending (r/c) */
-  CSR_MIP_FIRQ1P  = 17, /**< CPU mip CSR (17): FIRQ1P - Fast interrupt channel 1 pending (r/c) */
-  CSR_MIP_FIRQ2P  = 18, /**< CPU mip CSR (18): FIRQ2P - Fast interrupt channel 2 pending (r/c) */
-  CSR_MIP_FIRQ3P  = 19, /**< CPU mip CSR (19): FIRQ3P - Fast interrupt channel 3 pending (r/c) */
-  CSR_MIP_FIRQ4P  = 20, /**< CPU mip CSR (20): FIRQ4P - Fast interrupt channel 4 pending (r/c) */
-  CSR_MIP_FIRQ5P  = 21, /**< CPU mip CSR (21): FIRQ5P - Fast interrupt channel 5 pending (r/c) */
-  CSR_MIP_FIRQ6P  = 22, /**< CPU mip CSR (22): FIRQ6P - Fast interrupt channel 6 pending (r/c) */
-  CSR_MIP_FIRQ7P  = 23, /**< CPU mip CSR (23): FIRQ7P - Fast interrupt channel 7 pending (r/c) */
-  CSR_MIP_FIRQ8P  = 24, /**< CPU mip CSR (24): FIRQ8P - Fast interrupt channel 8 pending (r/c) */
-  CSR_MIP_FIRQ9P  = 25, /**< CPU mip CSR (25): FIRQ9P - Fast interrupt channel 9 pending (r/c) */
-  CSR_MIP_FIRQ10P = 26, /**< CPU mip CSR (26): FIRQ10P - Fast interrupt channel 10 pending (r/c) */
-  CSR_MIP_FIRQ11P = 27, /**< CPU mip CSR (27): FIRQ11P - Fast interrupt channel 11 pending (r/c) */
-  CSR_MIP_FIRQ12P = 28, /**< CPU mip CSR (28): FIRQ12P - Fast interrupt channel 12 pending (r/c) */
-  CSR_MIP_FIRQ13P = 29, /**< CPU mip CSR (29): FIRQ13P - Fast interrupt channel 13 pending (r/c) */
-  CSR_MIP_FIRQ14P = 30, /**< CPU mip CSR (30): FIRQ14P - Fast interrupt channel 14 pending (r/c) */
-  CSR_MIP_FIRQ15P = 31  /**< CPU mip CSR (31): FIRQ15P - Fast interrupt channel 15 pending (r/c) */
+  CSR_MIP_FIRQ0P  = 16, /**< CPU mip CSR (16): FIRQ0P - Fast interrupt channel 0 pending (r/-) */
+  CSR_MIP_FIRQ1P  = 17, /**< CPU mip CSR (17): FIRQ1P - Fast interrupt channel 1 pending (r/-) */
+  CSR_MIP_FIRQ2P  = 18, /**< CPU mip CSR (18): FIRQ2P - Fast interrupt channel 2 pending (r/-) */
+  CSR_MIP_FIRQ3P  = 19, /**< CPU mip CSR (19): FIRQ3P - Fast interrupt channel 3 pending (r/-) */
+  CSR_MIP_FIRQ4P  = 20, /**< CPU mip CSR (20): FIRQ4P - Fast interrupt channel 4 pending (r/-) */
+  CSR_MIP_FIRQ5P  = 21, /**< CPU mip CSR (21): FIRQ5P - Fast interrupt channel 5 pending (r/-) */
+  CSR_MIP_FIRQ6P  = 22, /**< CPU mip CSR (22): FIRQ6P - Fast interrupt channel 6 pending (r/-) */
+  CSR_MIP_FIRQ7P  = 23, /**< CPU mip CSR (23): FIRQ7P - Fast interrupt channel 7 pending (r/-) */
+  CSR_MIP_FIRQ8P  = 24, /**< CPU mip CSR (24): FIRQ8P - Fast interrupt channel 8 pending (r/-) */
+  CSR_MIP_FIRQ9P  = 25, /**< CPU mip CSR (25): FIRQ9P - Fast interrupt channel 9 pending (r/-) */
+  CSR_MIP_FIRQ10P = 26, /**< CPU mip CSR (26): FIRQ10P - Fast interrupt channel 10 pending (r/-) */
+  CSR_MIP_FIRQ11P = 27, /**< CPU mip CSR (27): FIRQ11P - Fast interrupt channel 11 pending (r/-) */
+  CSR_MIP_FIRQ12P = 28, /**< CPU mip CSR (28): FIRQ12P - Fast interrupt channel 12 pending (r/-) */
+  CSR_MIP_FIRQ13P = 29, /**< CPU mip CSR (29): FIRQ13P - Fast interrupt channel 13 pending (r/-) */
+  CSR_MIP_FIRQ14P = 30, /**< CPU mip CSR (30): FIRQ14P - Fast interrupt channel 14 pending (r/-) */
+  CSR_MIP_FIRQ15P = 31  /**< CPU mip CSR (31): FIRQ15P - Fast interrupt channel 15 pending (r/-) */
 };
 
 
 /**********************************************************************//**
- * CPU <b>misa</b> CSR (r/-): Machine instruction set extensions
+ * CPU misa CSR (r/-): Machine instruction set extensions
  **************************************************************************/
 enum NEORV32_CSR_MISA_enum {
-  CSR_MISA_A      =  0, /**< CPU misa CSR  (0): A: Atomic instructions CPU extension available (r/-)*/
+  CSR_MISA_A      =  0, /**< CPU misa CSR  (0): A: Atomic memory accesses CPU extension available (r/-)*/
   CSR_MISA_B      =  1, /**< CPU misa CSR  (1): B: Bit manipulation CPU extension available (r/-)*/
   CSR_MISA_C      =  2, /**< CPU misa CSR  (2): C: Compressed instructions CPU extension available (r/-)*/
-  CSR_MISA_D      =  3, /**< CPU misa CSR  (3): D: Double-precision floating-point extension available (r/-)*/
   CSR_MISA_E      =  4, /**< CPU misa CSR  (4): E: Embedded CPU extension available (r/-) */
-  CSR_MISA_F      =  5, /**< CPU misa CSR  (5): F: Single-precision floating-point extension available (r/-)*/
   CSR_MISA_I      =  8, /**< CPU misa CSR  (8): I: Base integer ISA CPU extension available (r/-) */
   CSR_MISA_M      = 12, /**< CPU misa CSR (12): M: Multiplier/divider CPU extension available (r/-)*/
   CSR_MISA_U      = 20, /**< CPU misa CSR (20): U: User mode CPU extension available (r/-)*/
@@ -365,58 +296,75 @@ enum NEORV32_CSR_MISA_enum {
 
 
 /**********************************************************************//**
- * CPU <b>mxisa</b> CSR (r/-): Machine _extended_ instruction set extensions (NEORV32-specific)
+ * CPU mxcsr CSR (r/w): Machine control and status register (NEORV32-specific)
  **************************************************************************/
-enum NEORV32_CSR_XISA_enum {
-  // ISA (sub-)extensions
-  CSR_MXISA_ZICSR     =  0, /**< CPU mxisa CSR  (0): privileged architecture (r/-)*/
-  CSR_MXISA_ZIFENCEI  =  1, /**< CPU mxisa CSR  (1): instruction stream sync (r/-)*/
-  CSR_MXISA_ZMMUL     =  2, /**< CPU mxisa CSR  (2): hardware mul/div (r/-)*/
-  CSR_MXISA_ZXCFU     =  3, /**< CPU mxisa CSR  (3): custom RISC-V instructions (r/-)*/
-  CSR_MXISA_SMCNTRPMF =  4, /**< CPU mxisa CSR  (4): counter privilege mode filtering (r/-)*/
-  CSR_MXISA_ZFINX     =  5, /**< CPU mxisa CSR  (5): FPU using x registers (r/-)*/
-
-  CSR_MXISA_ZICNTR    =  7, /**< CPU mxisa CSR  (7): standard instruction, cycle and time counter CSRs (r/-)*/
-  CSR_MXISA_PMP       =  8, /**< CPU mxisa CSR  (8): physical memory protection ("Smpmp") (r/-)*/
-  CSR_MXISA_ZIHPM     =  9, /**< CPU mxisa CSR  (9): hardware performance monitors (r/-)*/
-  CSR_MXISA_SDEXT     = 10, /**< CPU mxisa CSR (10): RISC-V debug mode (r/-)*/
-  CSR_MXISA_SDTRIG    = 11, /**< CPU mxisa CSR (11): RISC-V trigger module (r/-)*/
-
-  // Misc
-  CSR_MXISA_IS_SIM    = 20, /**< CPU mxisa CSR (20): this might be a simulation when set (r/-)*/
-
-  // Tuning options
-  CSR_MXISA_FASTMUL   = 30, /**< CPU mxisa CSR (30): DSP-based multiplication (M extensions only) (r/-)*/
-  CSR_MXISA_FASTSHIFT = 31  /**< CPU mxisa CSR (31): parallel logic for shifts (barrel shifters) (r/-)*/
+enum NEORV32_CSR_MXCSR_enum {
+  CSR_MXCSR_TRACE     = 26, /**< CPU mxcsr CSR (26): trace port implemented (r/-)*/
+  CSR_MXCSR_CONSTTBR  = 27, /**< CPU mxcsr CSR (27): constant-time branches implemented (r/-)*/
+  CSR_MXCSR_RFHWRST   = 28, /**< CPU mxcsr CSR (28): register file has full hardware reset (r/-)*/
+  CSR_MXCSR_FASTMUL   = 29, /**< CPU mxcsr CSR (29): DSP-based multiplication (M extensions only) (r/-)*/
+  CSR_MXCSR_FASTSHIFT = 30, /**< CPU mxcsr CSR (30): parallel logic for shifts (barrel shifters) (r/-)*/
+  CSR_MXCSR_ISSIM     = 31  /**< CPU mxcsr CSR (31): this might be a simulation when set (r/-)*/
 };
 
 
 /**********************************************************************//**
- * CPU <b>mhpmevent</b> hardware performance monitor events
+ * CPU mxisa CSR (r/-): Machine extended instruction set extensions (NEORV32-specific)
+ **************************************************************************/
+enum NEORV32_CSR_MXISA_enum {
+  CSR_MXISA_ZICSR    =  0, /**< CPU mxisa CSR  (0): privileged architecture (r/-)*/
+  CSR_MXISA_ZIFENCEI =  1, /**< CPU mxisa CSR  (1): instruction stream sync (r/-)*/
+  CSR_MXISA_ZMMUL    =  2, /**< CPU mxisa CSR  (2): hardware mul/div (r/-)*/
+  CSR_MXISA_ZXCFU    =  3, /**< CPU mxisa CSR  (3): custom RISC-V instructions (r/-)*/
+  CSR_MXISA_ZKT      =  4, /**< CPU mxisa CSR  (4): data independent execution time (of cryptographic operations) (r/-)*/
+  CSR_MXISA_ZFINX    =  5, /**< CPU mxisa CSR  (5): FPU using x registers (r/-)*/
+  CSR_MXISA_ZICOND   =  6, /**< CPU mxisa CSR  (6): integer conditional operations (r/-)*/
+  CSR_MXISA_ZICNTR   =  7, /**< CPU mxisa CSR  (7): standard instruction, cycle and time counter CSRs (r/-)*/
+  CSR_MXISA_SMPMP    =  8, /**< CPU mxisa CSR  (8): physical memory protection (r/-)*/
+  CSR_MXISA_ZIHPM    =  9, /**< CPU mxisa CSR  (9): hardware performance monitors (r/-)*/
+  CSR_MXISA_SDEXT    = 10, /**< CPU mxisa CSR (10): RISC-V debug mode (r/-)*/
+  CSR_MXISA_SDTRIG   = 11, /**< CPU mxisa CSR (11): RISC-V trigger module (r/-)*/
+  CSR_MXISA_ZBKX     = 12, /**< CPU mxisa CSR (12): scalar cryptography - crossbar permutation (r/-)*/
+  CSR_MXISA_ZKND     = 13, /**< CPU mxisa CSR (13): scalar cryptography - NIST AES decryption (r/-)*/
+  CSR_MXISA_ZKNE     = 14, /**< CPU mxisa CSR (14): scalar cryptography - NIST AES encryption (r/-)*/
+  CSR_MXISA_ZKNH     = 15, /**< CPU mxisa CSR (15): scalar cryptography - NIST hash functions (r/-)*/
+  CSR_MXISA_ZBKB     = 16, /**< CPU mxisa CSR (16): scalar cryptography - bit manipulation instructions (r/-)*/
+  CSR_MXISA_ZBKC     = 17, /**< CPU mxisa CSR (17): scalar cryptography - carry-less multiplication instructions (r/-)*/
+  CSR_MXISA_ZKN      = 18, /**< CPU mxisa CSR (18): scalar cryptography - NIST algorithm suite (r/-)*/
+  CSR_MXISA_ZKSH     = 19, /**< CPU mxisa CSR (19): scalar cryptography - ShangMi hash functions (r/-)*/
+  CSR_MXISA_ZKSED    = 20, /**< CPU mxisa CSR (20): scalar cryptography - ShangMi block cyphers (r/-)*/
+  CSR_MXISA_ZKS      = 21, /**< CPU mxisa CSR (21): scalar cryptography - ShangMi algorithm suite (r/-)*/
+  CSR_MXISA_ZBA      = 22, /**< CPU mxisa CSR (22): shifted-add bit-manipulation operations (r/-)*/
+  CSR_MXISA_ZBB      = 23, /**< CPU mxisa CSR (23): basic bit-manipulation operations (r/-)*/
+  CSR_MXISA_ZBS      = 24, /**< CPU mxisa CSR (24): single-bit bit-manipulation operations (r/-)*/
+  CSR_MXISA_ZAAMO    = 25, /**< CPU mxisa CSR (25): atomic read-modify-write operations (r/-)*/
+  CSR_MXISA_ZALRSC   = 26, /**< CPU mxisa CSR (26): atomic reservation-set operations (r/-)*/
+  CSR_MXISA_ZCB      = 27, /**< CPU mxisa CSR (27): additional code size reduction instruction (r/-)*/
+  CSR_MXISA_ZCA      = 28  /**< CPU mxisa CSR (28): compressed instructions without floating-point (r/-)*/
+};
+
+
+/**********************************************************************//**
+ * CPU mhpmevent hardware performance monitor events
  **************************************************************************/
 enum NEORV32_HPMCNT_EVENT_enum {
-  HPMCNT_EVENT_CY      = 0,  /**< CPU mhpmevent CSR (0):  Active cycle */
-  HPMCNT_EVENT_IR      = 2,  /**< CPU mhpmevent CSR (2):  Retired instruction */
-
-  HPMCNT_EVENT_CIR     = 3,  /**< CPU mhpmevent CSR (3):  Retired compressed instruction */
-  HPMCNT_EVENT_WAIT_IF = 4,  /**< CPU mhpmevent CSR (4):  Instruction fetch memory wait cycle */
-  HPMCNT_EVENT_WAIT_II = 5,  /**< CPU mhpmevent CSR (5):  Instruction issue wait cycle */
-  HPMCNT_EVENT_WAIT_MC = 6,  /**< CPU mhpmevent CSR (6):  Multi-cycle ALU-operation wait cycle */
-  HPMCNT_EVENT_LOAD    = 7,  /**< CPU mhpmevent CSR (7):  Load operation */
-  HPMCNT_EVENT_STORE   = 8,  /**< CPU mhpmevent CSR (8):  Store operation */
-  HPMCNT_EVENT_WAIT_LS = 9,  /**< CPU mhpmevent CSR (9):  Load/store memory wait cycle */
-
-  HPMCNT_EVENT_JUMP    = 10, /**< CPU mhpmevent CSR (10): Unconditional jump */
-  HPMCNT_EVENT_BRANCH  = 11, /**< CPU mhpmevent CSR (11): Conditional branch (taken or not taken) */
-  HPMCNT_EVENT_TBRANCH = 12, /**< CPU mhpmevent CSR (12): Conditional taken branch */
-
-  HPMCNT_EVENT_TRAP    = 13, /**< CPU mhpmevent CSR (13): Entered trap */
-  HPMCNT_EVENT_ILLEGAL = 14  /**< CPU mhpmevent CSR (14): Illegal instruction exception */
+  HPMCNT_EVENT_CY       = 0,  /**< CPU mhpmevent CSR (0):  Active cycle */
+  HPMCNT_EVENT_TM       = 1,  /**< CPU mhpmevent CSR (1):  Reserved */
+  HPMCNT_EVENT_IR       = 2,  /**< CPU mhpmevent CSR (2):  Retired instruction */
+  HPMCNT_EVENT_COMPR    = 3,  /**< CPU mhpmevent CSR (3):  Executed compressed instruction */
+  HPMCNT_EVENT_WAIT_DIS = 4,  /**< CPU mhpmevent CSR (4):  Instruction dispatch wait cycle */
+  HPMCNT_EVENT_WAIT_ALU = 5,  /**< CPU mhpmevent CSR (5):  Multi-cycle ALU co-processor wait cycle */
+  HPMCNT_EVENT_BRANCH   = 6,  /**< CPU mhpmevent CSR (6):  Executed branch instruction */
+  HPMCNT_EVENT_BRANCHED = 7,  /**< CPU mhpmevent CSR (7):  Control flow transfer */
+  HPMCNT_EVENT_LOAD     = 8,  /**< CPU mhpmevent CSR (8):  Executed load operation */
+  HPMCNT_EVENT_STORE    = 9,  /**< CPU mhpmevent CSR (9):  Executed store operation */
+  HPMCNT_EVENT_WAIT_LSU = 10, /**< CPU mhpmevent CSR (10): Load-store unit memory wait cycle */
+  HPMCNT_EVENT_TRAP     = 11  /**< CPU mhpmevent CSR (11): Entered trap */
 };
 
 
 /**********************************************************************//**
- * CPU <b>pmpcfg</b> PMP configuration attributes
+ * CPU pmpcfg PMP configuration attributes
  **************************************************************************/
 enum NEORV32_PMPCFG_ATTRIBUTES_enum {
   PMPCFG_R     = 0, /**< CPU pmpcfg attribute (0): Read */
@@ -474,4 +422,4 @@ enum NEORV32_EXCEPTION_CODES_enum {
 };
 
 
-#endif // neorv32_cpu_csr_h
+#endif // NEORV32_CPU_CSR_H

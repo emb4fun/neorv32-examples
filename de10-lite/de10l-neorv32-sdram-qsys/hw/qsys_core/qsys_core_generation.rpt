@@ -1,10 +1,10 @@
 Info: Starting: Create HDL design files for synthesis
-Info: qsys-generate D:\Projekte\Altera\riscv\neorv32\de10l-neorv32-sdram-qsys\hw\qsys_core.qsys --synthesis=VERILOG --output-directory=D:\Projekte\Altera\riscv\neorv32\de10l-neorv32-sdram-qsys\hw\qsys_core\synthesis --family="MAX 10" --part=10M50DAF484C7G
+Info: qsys-generate D:\Projekte\GitHub\neorv32-examples\de10-lite\de10l-neorv32-sdram-qsys\hw\qsys_core.qsys --synthesis=VERILOG --output-directory=D:\Projekte\GitHub\neorv32-examples\de10-lite\de10l-neorv32-sdram-qsys\hw\qsys_core\synthesis --family="MAX 10" --part=10M50DAF484C7G
 Progress: Loading hw/qsys_core.qsys
 Progress: Reading input file
-Progress: Adding clk_sys [clock_source 15.0]
+Progress: Adding clk_sys [clock_source 20.1]
 Progress: Parameterizing module clk_sys
-Progress: Adding sdram [altera_avalon_new_sdram_controller 15.0]
+Progress: Adding sdram [altera_avalon_new_sdram_controller 20.1]
 Progress: Parameterizing module sdram
 Progress: Adding wb_avm_bridge [wb_avm_bridge 1.0]
 Progress: Parameterizing module wb_avm_bridge
@@ -12,13 +12,14 @@ Progress: Building connections
 Progress: Parameterizing connections
 Progress: Validating
 Progress: Done reading input file
+Info: qsys_core.sdram: SDRAM Controller will only be supported in Quartus Prime Standard Edition in the future release.
 Info: qsys_core: Generating qsys_core "qsys_core" for QUARTUS_SYNTH
 Info: Interconnect is inserted between master wb_avm_bridge.m0 and slave sdram.s1 because the master has address signal 32 bit wide, but the slave is 25 bit wide.
 Info: Interconnect is inserted between master wb_avm_bridge.m0 and slave sdram.s1 because the master has readdata signal 32 bit wide, but the slave is 16 bit wide.
 Info: Interconnect is inserted between master wb_avm_bridge.m0 and slave sdram.s1 because the master has writedata signal 32 bit wide, but the slave is 16 bit wide.
 Info: Interconnect is inserted between master wb_avm_bridge.m0 and slave sdram.s1 because the master has byteenable signal 4 bit wide, but the slave is 2 bit wide.
 Info: sdram: Starting RTL generation for module 'qsys_core_sdram'
-Info: sdram:   Generation command is [exec D:/altera/15.0/quartus/bin64/perl/bin/perl.exe -I D:/altera/15.0/quartus/bin64/perl/lib -I D:/altera/15.0/quartus/sopc_builder/bin/europa -I D:/altera/15.0/quartus/sopc_builder/bin/perl_lib -I D:/altera/15.0/quartus/sopc_builder/bin -I D:/altera/15.0/quartus/../ip/altera/sopc_builder_ip/common -I D:/altera/15.0/quartus/../ip/altera/sopc_builder_ip/altera_avalon_new_sdram_controller -- D:/altera/15.0/quartus/../ip/altera/sopc_builder_ip/altera_avalon_new_sdram_controller/generate_rtl.pl --name=qsys_core_sdram --dir=C:/Users/mfischer/AppData/Local/Temp/alt8944_6799467922287535504.dir/0001_sdram_gen/ --quartus_dir=D:/altera/15.0/quartus --verilog --config=C:/Users/mfischer/AppData/Local/Temp/alt8944_6799467922287535504.dir/0001_sdram_gen//qsys_core_sdram_component_configuration.pl  --do_build_sim=0  ]
+Info: sdram:   Generation command is [exec D:/altera/20.1/quartus/bin64/perl/bin/perl.exe -I D:/altera/20.1/quartus/bin64/perl/lib -I D:/altera/20.1/quartus/sopc_builder/bin/europa -I D:/altera/20.1/quartus/sopc_builder/bin -I D:/altera/20.1/quartus/../ip/altera/sopc_builder_ip/common -I D:/altera/20.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_new_sdram_controller -- D:/altera/20.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_new_sdram_controller/generate_rtl.pl --name=qsys_core_sdram --dir=C:/Users/win11/AppData/Local/Temp/alt0365_6293051145914007149.dir/0002_sdram_gen/ --quartus_dir=D:/altera/20.1/quartus --verilog --config=C:/Users/win11/AppData/Local/Temp/alt0365_6293051145914007149.dir/0002_sdram_gen//qsys_core_sdram_component_configuration.pl  --do_build_sim=0  ]
 Info: sdram: Done RTL generation for module 'qsys_core_sdram'
 Info: sdram: "qsys_core" instantiated altera_avalon_new_sdram_controller "sdram"
 Info: wb_avm_bridge: "qsys_core" instantiated wb_avm_bridge "wb_avm_bridge"
@@ -35,12 +36,12 @@ Info: sdram_s1_burst_adapter: "mm_interconnect_0" instantiated altera_merlin_bur
 Info: cmd_demux: "mm_interconnect_0" instantiated altera_merlin_demultiplexer "cmd_demux"
 Info: cmd_mux: "mm_interconnect_0" instantiated altera_merlin_multiplexer "cmd_mux"
 Info: rsp_mux: "mm_interconnect_0" instantiated altera_merlin_multiplexer "rsp_mux"
-Info: Reusing file D:/Projekte/Altera/riscv/neorv32/de10l-neorv32-sdram-qsys/hw/qsys_core/synthesis/submodules/altera_merlin_arbitrator.sv
+Info: Reusing file D:/Projekte/GitHub/neorv32-examples/de10-lite/de10l-neorv32-sdram-qsys/hw/qsys_core/synthesis/submodules/altera_merlin_arbitrator.sv
 Info: sdram_s1_rsp_width_adapter: "mm_interconnect_0" instantiated altera_merlin_width_adapter "sdram_s1_rsp_width_adapter"
-Info: Reusing file D:/Projekte/Altera/riscv/neorv32/de10l-neorv32-sdram-qsys/hw/qsys_core/synthesis/submodules/altera_merlin_address_alignment.sv
-Info: Reusing file D:/Projekte/Altera/riscv/neorv32/de10l-neorv32-sdram-qsys/hw/qsys_core/synthesis/submodules/altera_merlin_burst_uncompressor.sv
+Info: Reusing file D:/Projekte/GitHub/neorv32-examples/de10-lite/de10l-neorv32-sdram-qsys/hw/qsys_core/synthesis/submodules/altera_merlin_address_alignment.sv
+Info: Reusing file D:/Projekte/GitHub/neorv32-examples/de10-lite/de10l-neorv32-sdram-qsys/hw/qsys_core/synthesis/submodules/altera_merlin_burst_uncompressor.sv
 Info: avalon_st_adapter: "mm_interconnect_0" instantiated altera_avalon_st_adapter "avalon_st_adapter"
 Info: error_adapter_0: "avalon_st_adapter" instantiated error_adapter "error_adapter_0"
 Info: qsys_core: Done "qsys_core" with 18 modules, 29 files
-Info: ip-generate succeeded.
+Info: qsys-generate succeeded.
 Info: Finished: Create HDL design files for synthesis

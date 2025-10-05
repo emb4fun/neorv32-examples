@@ -7,7 +7,8 @@
    <irq preferredWidth="34" />
   </columns>
  </systemtable>
- <library expandedCategories="Library,Project" />
- <window width="1100" height="800" x="0" y="0" />
+ <library
+   expandedCategories="Library,Library/Qsys Interconnect/Memory-Mapped,Library/Qsys Interconnect,Library/Basic Functions,Library/Basic Functions/Bridges and Adaptors/Memory Mapped,Library/Basic Functions/Simulation; Debug and Verification,Library/Basic Functions/Bridges and Adaptors,Project" />
+ <window width="1100" height="800" x="632" y="322" />
  <generation block_symbol_file="0" />
 </preferences>

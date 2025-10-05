@@ -1,0 +1,176 @@
+<<<
+:sectnums:
+==== Processor-External Bus Interface (XBUS)
+
+[cols="<3,<3,<4"]
+[grid="none"]
+|=======================
+| Hardware source files:  | neorv32_xbus.vhd     | External bus gateway
+| Software driver files:  | none                 |
+| Top entity ports:       | `xbus_adr_o`         | address output (32-bit)
+|                         | `xbus_dat_i`         | data input (32-bit)
+|                         | `xbus_dat_o`         | data output (32-bit)
+|                         | `xbus_cti_o`         | cycle type (3-bit)
+|                         | `xbus_tag_o`         | access tag (3-bit)
+|                         | `xbus_we_o`          | write enable (1-bit)
+|                         | `xbus_sel_o`         | byte enable (4-bit)
+|                         | `xbus_stb_o`         | bus strobe (1-bit)
+|                         | `xbus_cyc_o`         | valid cycle (1-bit)
+|                         | `xbus_ack_i`         | acknowledge (1-bit)
+|                         | `xbus_err_i`         | bus error (1-bit)
+| Configuration generics: | `XBUS_EN`            | enable external bus interface when `true`
+|                         | `XBUS_TIMEOUT`       | number of clock cycles after which an unacknowledged external bus access will auto-terminate (0 = disabled)
+|                         | `XBUS_REGSTAGE_EN`   | implement XBUS register stages
+|                         | (`CACHE_BLOCK_SIZE`) | burst size
+|                         | (`CACHE_BURSTS_EN`)  | enable burst transfers for cache update
+| CPU interrupts:         | none                 |
+|=======================
+
+**Key Features**
+
+* Gateway for processor-external modules
+* Wishbone-compatible bus protocol
+* Optional burst support
+* Optional AXI4 bridging
+
+
+**Overview**
+
+The external bus interface provides a **Wishbone**-compatible on-chip bus interface. This bus interface
+can be used to attach processor-external modules like memories, custom hardware accelerators or additional
+peripheral devices.
+
+.Burst Transfers
+[IMPORTANT]
+If any cache (<<_processor_internal_instruction_cache_icache,i-cache>> or <<_processor_internal_data_cache_dcache, d-cache>>)
+is implemented and bursts are globally enabled (by the `CACHE_BURSTS_EN` top generic) all cache block transfers are
+**always executed as burst transfers** with a burst size equal to the cache block size (`CACHE_BLOCK_SIZE` top generic).
+Burst transfers should **not** be enabled if any external module mapped to _cached_ <<_address_space>> does not support bursts.
+Note that burst transactions need to set `ACK` or `ERR` for each burst element.
+
+.Address Mapping
+[NOTE]
+The external interface is **not** mapped to a specific address range. Instead, all CPU memory accesses that
+do not target a specific (and actually implemented) processor-internal address region (hence, accessing the "void";
+see section <<_address_space>>) are **redirected** to the external bus interface.
+
+.Wishbone Specs
+[TIP]
+The official Wishbone specification scan be found online:
+https://wishbone-interconnect.readthedocs.io/en/latest/index.html
+
+.AXI4 Interface Bridge
+[TIP]
+A bridge that converts the processor's XBUS interface into an AXI4-compatible host interface is available
+in `rtl/system_integration/xbus2axi4_bridge.vhd`. This bridge is also used for the ENORV32 Vivado IP block:
+https://stnolting.github.io/neorv32/ug/#_packaging_the_processor_as_vivado_ip_block
+
+
+**XBUS Bus Protocol**
+
+The external bus interface implements a subset of the **pipelined Wishbone** protocol.
+Basically, three types of bus transfer are implemented which are illustrated in the following figures:
+
+[start=1]
+. **Single-access** transfers perform a single read or write operation.
+. **Atomic-access** transfers perform a read followed by a write operation. The bus is locked during the entire transfer
+to maintain exclusive bus access. This transfer type is used by the CPU to perform atomic read-modify-write operations.
+. **Burst read** transfers perform several consecutive read accesses. This transfer type is used by cache block operations.
+
+.XBUS **Single Access** Transfers: Write (left) and Read (right)
+[wavedrom, format="svg", align="center"]
+----
+{signal: [
+  {name: 'clk',         wave: 'p....|......|...'},
+  {name: 'xbus_adr_o',  wave: 'x3...|.x4...|.x.', data: ['write_address', 'read_address']},
+  {name: 'xbus_dat_o',  wave: 'x3...|.x....|.x.', data: ['wdata']},
+  {name: 'xbus_cti_o',  wave: 'x3...|.x4...|.x.', data: ['000 (classic cycle)', '000 (classic cycle)']},
+  {name: 'xbus_tag_o',  wave: 'x3...|.x4...|.x.', data: ['tag', 'tag']},
+  {name: 'xbus_we_o',   wave: 'x1...|.x0...|.x.'},
+  {name: 'xbus_sel_o',  wave: 'x3...|.x4...|.x.', data: ['byte_enable', 'byte_enable']},
+  {name: 'xbus_stb_o',  wave: '010..|..10..|...', node: '.a......e......'},
+  {name: 'xbus_cyc_o',  wave: '01...|.01...|.0.', node: '.b... .df.....h'},
+  {},
+  {name: 'xbus_ack_i',  wave: 'x0...|1x0...|1x.', node: '......c......g.'},
+  {name: 'xbus_err_i',  wave: 'x0...|.x0...|.x.'},
+  {name: 'xbus_dat_i',  wave: 'x....|.x....|4x.', data: ['rdata']},
+],
+ edge: ['a~>c', 'b~>c', 'c~>d', 'e~>g', 'f~>g', 'g~>h']
+}
+----
+
+.XBUS **Atomic Access** Transfer
+[wavedrom, format="svg", align="center"]
+----
+{signal: [
+  {name: 'clk',         wave: 'p.......'},
+  {name: 'xbus_adr_o',  wave: 'x2.....x', data: ['addr']},
+  {name: 'xbus_dat_o',  wave: 'x.......', data: ['wdata']},
+  {name: 'xbus_cti_o',  wave: 'x7.....x', data: ['001 (constant address burst)']},
+  {name: 'xbus_tag_o',  wave: 'x2.....x'},
+  {name: 'xbus_we_o',   wave: 'x0..1..x'},
+  {name: 'xbus_sel_o',  wave: 'x2.....x'},
+  {name: 'xbus_stb_o',  wave: '010.10..', node: '.a..c...'},
+  {name: 'xbus_cyc_o',  wave: '01.....0', node: '.......e'},
+  {},
+  {name: 'xbus_ack_i',  wave: '0..10.10', node: '...b..df'},
+  {name: 'xbus_err_i',  wave: '0.......'},
+  {name: 'xbus_dat_i',  wave: 'x..2x...', data: ['rdata']},
+],
+ edge: ['a~>b', 'b~>c', 'c~>d', 'ef']
+}
+----
+
+.XBUS **Burst Read** Transfer (4-Words)
+[wavedrom, format="svg", align="center"]
+----
+{signal: [
+  {name: 'clk',         wave: 'p........'},
+  {name: 'xbus_adr_o',  wave: 'x3.456.x.', data: ['0', '4', '8', '12']},
+  {name: 'xbus_dat_o',  wave: 'x........'},
+  {name: 'xbus_cti_o',  wave: 'x7.....x.', data: ['111 (incrementing address burst)']},
+  {name: 'xbus_tag_o',  wave: 'x2.....x.'},
+  {name: 'xbus_we_o',   wave: 'x0.....x.'},
+  {name: 'xbus_sel_o',  wave: 'x2.....x.'},
+  {name: 'xbus_stb_o',  wave: '0101..0..', node: '.a.cegi.'},
+  {name: 'xbus_cyc_o',  wave: '01.....0.', node: '.......k'},
+  {},
+  {name: 'xbus_ack_i',  wave: '0.101..0.', node: '..b.dfhj'},
+  {name: 'xbus_err_i',  wave: '0........'},
+  {name: 'xbus_dat_i',  wave: 'x.3x456x.', data: ['[0]', '[4]', '[8]', '[12]']},
+],
+ edge: ['a~>b', 'b~>c', 'c~>d', 'e~>f', 'g~>h', 'i~>j', 'kj']
+}
+----
+
+
+**Bus Latency**
+
+An accessed XBUS device does not have to respond immediately to a bus request by sending an `ACK`.
+Instead, there is a **time window** where the device has to acknowledge the transfer. This time window
+is configured by the `XBUS_TIMEOUT` generic. Note that the value provided by this generic is internally
+extended to the next power of two.
+
+All XBUS transactions have to be acknowledged within this time window. Otherwise the transfer is terminated
+and a bus fault exception is raised. See section <<_bus_monitor_and_timeout>> for more information.
+
+Furthermore, an accesses XBUS device can signal an error condition at any time by setting the `ERR` signal
+high for one cycle. This will also terminate the current bus transaction raising a CPU bus fault exception.
+
+
+.Register Stage
+[TIP]
+An optional register stage can be added to the XBUS gateway to break up the critical path easing timing closure.
+When `XBUS_REGSTAGE_EN` is _true_ all outgoing and incoming XBUS signals are registered increasing access latency
+by two cycles. Furthermore, all outgoing signals (like the address) will be kept stable if there is no bus access
+being initiated.
+
+
+**Access Tag**
+
+The XBUS tag signal `xbus_tag_o` provides additional information about the current access cycle.
+The encoding is compatible to the AXI4 `xPROT` signal.
+
+* `xbus_tag_o(0)` **P**: access is performed from **privileged** mode (machine-mode) when set
+* `xbus_tag_o(1)` **NS**: this bit is hardwired to `0` indicating a **secure** access
+* `xbus_tag_o(2)` **I**: access is an **instruction** fetch when set; access is a data access when cleared

@@ -1,55 +1,66 @@
 <<<
+<<<
 :sectnums:
-==== Processor-Internal Data Cache (dCACHE)
+==== Processor-Internal Data Cache (dCache)
 
 [cols="<3,<3,<4"]
-[frame="topbot",grid="none"]
+[grid="none"]
 |=======================
-| Hardware source file(s): | neorv32_dcache.vhd  | 
-| Software driver file(s): | none                | _implicitly used_
-| Top entity port:         | none                | 
-| Configuration generics:  | `DCACHE_EN`         | implement processor-internal data cache when `true`
-|                          | `DCACHE_NUM_BLOCKS` | number of cache blocks (pages/lines)
-|                          | `DCACHE_BLOCK_SIZE` | size of a cache block in bytes
-| CPU interrupts:          | none | 
+| Hardware source files:  | neorv32_cache.vhd   | Generic cache module
+| Software driver files:  | none                |
+| Top entity ports:       | none                |
+| Configuration generics: | `DCACHE_EN`         | implement processor-internal, CPU-exclusive data cache (D$) when `true`
+|                         | `DCACHE_NUM_BLOCKS` | number of cache blocks ("cache lines"); has to be a power of two
+|                         | `CACHE_BLOCK_SIZE`  | size of a cache block in bytes; has to be a power of two (global configuration for I$ and D$), min 8
+|                         | `CACHE_BURSTS_EN`   | enable burst transfers for cache update
+| CPU interrupts:         | none                |
 |=======================
 
-The processor features an optional data cache to improve performance when using memories with high
-access latencies. The cache is directly connected to the CPU's data access interface and provides
-full-transparent buffering.
+**Key Features**
 
-The cache is implemented if the `DCACHE_EN` generic is `true`. The size of the cache memory is defined via the
-`DCACHE_BLOCK_SIZE` (the size of a single cache block/page/line in bytes; has to be a power of two and greater than or
-equal to 4 bytes) and `DCACHE_NUM_BLOCKS` (the total amount of cache blocks; has to be a power of two and greater than or
-equal to 1) generics. The data cache provides only a single set, hence it is direct-mapped.
+* Direct-mapped write-through cache
+* Configurable number of lines
+* Configurable line size
+* Allows bypassing for _uncached_ accesses
 
 
-**Cached/Unached Accesses**
+**Overview**
 
-The data cache provides direct accesses (= uncached) to memory in order to access memory-mapped IO (like the
+The processor features an optional CPU data cache. The cache is connected directly to the CPU's data access interface
+and provides full-transparent accesses. The cache is direct-mapped and uses "write-through" as write strategy.
+The cache uses <<_locked_bus_accesses_and_bursts>> to download cache blocks/lines from main memory.
+In the <<_dual_core_configuration>> each CPU core is equipped with a private data cache.
+
+The data cache is implemented if `DCACHE_EN` it _true_. The total cache memory size in bytes is defined by
+`DCACHE_NUM_BLOCKS x CACHE_BLOCK_SIZE`. `DCACHE_NUM_BLOCKS` defines the number of cache blocks (or "cache lines")
+and `CACHE_BLOCK_SIZE` defines the block size in bytes; note that this configuration is global for all caches.
+
+.Burst Transfers
+[IMPORTANT]
+Cache update operations (e.g. to resolve a cache miss) can use <<_locked_bus_accesses_and_bursts,burst transfers>> to
+increase performance. Burst operations are enabled (for all caches) by the `CACHE_BURSTS_EN` top generic. Note that
+when bursts are enabled all cache block transfers are **always executed as burst transfers**. Hence, all devices,
+memories and endpoints that can be accessed by the cache must also be able to process bursts
+(including the <<_processor_external_bus_interface_xbus>>).
+
+.Uncached Accesses
+[NOTE]
+The cache provides direct/uncached accesses to memory (bypassing the cache) in order to access memory-mapped IO (like the
 processor-internal IO/peripheral modules). All accesses that target the address range from `0xF0000000` to `0xFFFFFFFF`
-will not be cached at all (see section <<_address_space>>).
+will bypass the cache. Hence, access will not be cached. See section <<_address_space>> for more information. Furthermore,
+the atomic memory operations of the <<_zaamo_isa_extension>> will always **bypass** the cache.
 
-
-.Caching Internal Memories
+.Manual Cache Flush/Clear/Reload and Memory Coherence
 [NOTE]
-The data cache is intended to accelerate data access to **processor-external** memories
-(via the external bus interface or via the XIP module). The cache(s) should not be implemented
-when using only processor-internal data and instruction memories.
+By executing the `fence` instruction the data cache is flushed, cleared and reloaded.
+See section <<_memory_coherence>> for more information.
 
-.Manual Cache Clear/Reload
+.Cache Block Update Bus Error Handling
 [NOTE]
-By executing the `fence` instruction (<<_i_isa_extension>>) the cache is cleared and a reload from
-main memory is triggered.
+If the cache encounters a bus error while downloading a new block from main memory, only the according
+data word is marked as faulty (instead of invalidating the entire cache block). A bus access fault exception
+is only raised if the CPU accesses a cached word that has actually been marked as faulty.
 
 .Retrieve Cache Configuration from Software
 [TIP]
 Software can retrieve the cache configuration/layout from the <<_sysinfo_cache_configuration>> register.
-
-.Bus Access Fault Handling
-[NOTE]
-The cache always loads a complete cache block (aligned to the block size) every time a
-cache miss is detected. Each cached word from this block provides a single status bit that indicates if the
-according bus access was successful or caused a bus error. Hence, the whole cache block remains valid even
-if certain addresses inside caused a bus error. If the CPU accesses any of the faulty cache words, a
-data bus error exception is raised.

@@ -5,7 +5,7 @@
 | Board   | [Terasic Cyclone V GX Starter Kit](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&No=830) |
 | :------ | :---------- |
 | FPGA    | Cyclone V GX `5CGXFC5C6F27C7N` |
-| Quartus | 15.0.2      |
+| Quartus | 20.1.1      |
 | clk_i   | 90 MHz      |
 
 #### Memory Address Map:
@@ -25,12 +25,10 @@ This is a simple example using on-chip RAM as memory. Compared to the original
 blinky example, not the value of the counter but a running light is displayed
 on the LEDs.
 
-The description for the original blinky can be found [here](https://github.com/emb4fun/neorv32/tree/master/setups/quartus/de0-nano-test-setup).
-
 ## Credits
 
 All credit must go to Stephan Nolting who has providing the [NEORV32](https://github.com/stnolting/neorv32) project. I've only made minor changes against the original blinky project here.
 
 ## Embedded Studio for RISC-V
 
-A description of how to use Embedded Studio for RISC-V can be find [here](https://www.emb4fun.de/archive/ses4rv/index.html).
+A description of how to use Embedded Studio for RISC-V can be find [here](https://www.emb4fun.de/riscv/ses4rv/index.html).

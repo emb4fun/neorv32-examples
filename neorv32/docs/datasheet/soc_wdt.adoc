@@ -3,85 +3,71 @@
 ==== Watchdog Timer (WDT)
 
 [cols="<3,<3,<4"]
-[frame="topbot",grid="none"]
+[grid="none"]
 |=======================
-| Hardware source file(s): | neorv32_wdt.vhd | 
-| Software driver file(s): | neorv32_wdt.c |
-|                          | neorv32_wdt.h |
-| Top entity port:         | none | 
-| Configuration generics:  | `IO_WDT_EN` | implement watchdog when `true`
-| CPU interrupts:          | fast IRQ channel 0 | watchdog timeout (see <<_processor_interrupts>>)
+| Hardware source files:  | neorv32_wdt.vhd |
+| Software driver files:  | neorv32_wdt.c   | link:https://stnolting.github.io/neorv32/sw/neorv32__wdt_8c.html[Online software reference (Doxygen)]
+|                         | neorv32_wdt.h   | link:https://stnolting.github.io/neorv32/sw/neorv32__wdt_8h.html[Online software reference (Doxygen)]
+| Top entity ports:       | `rstn_wdt_o`    | synchronous watchdog reset output, low-active
+| Configuration generics: | `IO_WDT_EN`     | implement watchdog when `true`
+| CPU interrupts:         | none            |
 |=======================
+
+**Key Features**
+
+* 32-bit timeout counter with 3-bit clock divider
+* Password-protected; lockable configuration
+* Provides information about the cause of the last reset
+
+
+**Overview**
+
+The watchdog (WDT) provides a last resort for safety-critical applications. When a pre-programmed timeout value
+is reached a system-wide hardware reset is generated. The internal counter has to be reset explicitly by the
+application program every now and then to prevent a timeout.
 
 
 **Theory of Operation**
 
-The watchdog (WDT) provides a last resort for safety-critical applications. The WDT provides a "bark and bite"
-concept. The timeout counter first triggers an optional CPU interrupt ("bark") when reaching half of the programmed
-interval to inform the application of the imminent timeout. When the full timeout value is reached
-a system-wide hardware reset is generated ("bite"). The internal counter has to be reset explicitly by the application
-program every now and then to prevent a timeout.
-
-
-**Configuration**
-
 The watchdog is enabled by setting the control register's `WDT_CTRL_EN` bit. When this bit is cleared, the internal
-timeout counter is reset to zero and no interrupt and no system reset can be triggered.
+timeout counter is reset to zero and no system reset can be triggered by this module.
 
-The internal 32-bit timeout counter is clocked at 1/4096th of the processor's main clock (f~WDT~[Hz] = f~main~[Hz] / 4096).
+The internal 32-bit timeout counter is clocked at 1/4096 of the processor's main clock (f~WDT~[Hz] = f~main~[Hz] / 4096).
 Whenever this counter reaches the programmed timeout value (`WDT_CTRL_TIMEOUT` bits in the control register) a
-hardware reset is triggered. In order to inform the application of an imminent timeout, an optional CPU interrupt is
-triggered when the timeout counter reaches _half_ of the programmed timeout value.
+hardware reset is triggered. The timeout counter is reset by writing the reset **PASSWORD** to the `RESET` register
+("feeding the watchdog"). The password is hardwired to hexadecimal `0x709D1AB3`.
 
-The watchdog's timeout counter is reset ("feeding the watchdog") by writing the reset **PASSWORD** to the `RESET` register.
-The password is hardwired to hexadecimal `0x709D1AB3`.
-
-.Watchdog Interrupt
-[NOTE]
-A watchdog interrupt occurs when the watchdog is enabled and the internal counter reaches _exactly_ half of the programmed
-timeout value. Hence, the interrupt only fires once. However, a triggered WDT interrupt has to be explicitly cleared by
-writing zero to the according <<_mip>> CSR bit.
-
-.Watchdog Operation during Debugging
 [IMPORTANT]
-By default, the watchdog stops operation when the CPU enters debug mode and will resume normal operation after
-the CPU has left debug mode again. This will prevent an unintended watchdog timeout during a debug session. However,
-the watchdog can also be configured to keep operating even when the CPU is in debug mode by setting the control
-register's `WDT_CTRL_DBEN` bit.
-
-.Watchdog Operation during CPU Sleep
-[IMPORTANT]
-By default, the watchdog stops operating when the CPU enters sleep mode. However, the watchdog can also be configured
-to keep operating even when the CPU is in sleep mode by setting the control register's `WDT_CTRL_SEN` bit.
+Once enabled, the watchdog keeps operating even if the CPU is in <<_sleep_mode>> or if the processor is being
+debugged via the <<_on_chip_debugger_ocd>>.
 
 
 **Configuration Lock**
 
 The watchdog control register can be _locked_ to protect the current configuration from being modified. The lock is
-activated by setting the `WDT_CTRL_LOCK` bit. In the locked state any write access to the control register is entirely
-ignored (see table below, "writable if locked"). However, read accesses to the control register as well as watchdog resets
-are further possible.
+activated by setting the `WDT_CTRL_LOCK` bit. The lock bit can only be cleared by a _hardware_ reset
 
-The lock bit can only be set if the WDT is already enabled (`WDT_CTRL_EN` is set). Furthermore, the lock bit can
-only be cleared again by a system-wide hardware reset.
-
-
-**Strict Mode**
-
-The _strict operation mode_ provides additional safety functions. If the strict mode is enabled by the `WDT_CTRL_STRICT`
-control register bit an **immediate hardware** reset if enforced if
-
-* the `RESET` register is written with an incorrect password or
-* the `CTRL` register is written and the `WDT_CTRL_LOCK` bit is set.
+In the locked state any write access to the control register will trigger an immediate hardware reset (read accesses
+are still possible and have no side effects). Additionally, writing an incorrect password to the `RESET` register will
+also trigger an immediate hardware reset.
 
 
 **Cause of last Hardware Reset**
 
-The cause of the last system hardware reset can be determined via the `WDT_CTRL_RCAUSE_*` bits:
+The cause of the last system hardware reset can be determined via the two `WDT_CTRL_RCAUSE` bits:
 
-* `0b00`: Reset caused by external reset signal/pin
-* `0b01`: Reset caused by on-chip debugger
-* `0b10`: Reset caused by watchdog
+* `WDT_RCAUSE_EXT` (0b00): Reset caused by external reset signal pin
+* `WDT_RCAUSE_OCD` (0b01): Reset caused by on-chip debugger
+* `WDT_RCAUSE_TMO` (0b10): Reset caused by watchdog timeout
+* `WDT_RCAUSE_ACC` (0b11): Reset caused by illegal watchdog access
+
+
+**External Reset Output**
+
+The WDT provides a dedicated output (<<_processor_top_entity_signals>>: `rstn_wdt_o`) to reset processor-external modules
+when the watchdog times out. This signal is low-active and synchronous to the processor clock. It is available if the
+watchdog is implemented; otherwise it is hardwired to `1`. Note that the signal also becomes active (low) when the
+processor's main reset signal is active (even if the watchdog is deactivated or disabled for synthesis).
 
 
 **Register Map**
@@ -91,13 +77,10 @@ The cause of the last system hardware reset can be determined via the `WDT_CTRL_
 [options="header",grid="all"]
 |=======================
 | Address | Name [C] | Bit(s), Name [C] | R/W | Reset value | Writable if locked | Function
-.8+<| `0xfffffb00` .8+<| `CTRL` <|`0` `WDT_CTRL_EN`     ^| r/w ^| `0` ^| no  <| watchdog enable
-                                <|`1` `WDT_CTRL_LOCK`   ^| r/w ^| `0` ^| no  <| lock configuration when set, clears only on system reset, can only be set if enable bit is set already
-                                <|`2` `WDT_CTRL_DBEN`   ^| r/w ^| `0` ^| no  <| set to allow WDT to continue operation even when CPU is in debug mode
-                                <|`3` `WDT_CTRL_SEN`    ^| r/w ^| `0` ^| no  <| set to allow WDT to continue operation even when CPU is in sleep mode
-                                <|`4` `WDT_CTRL_STRICT` ^| r/w ^| `0` ^| no  <| set to enable strict mode (force hardware reset if reset password is incorrect or if write access to locked CTRL register)
-                                <|`6:5` `WDT_CTRL_RCAUSE_HI : WDT_CTRL_RCAUSE_LO` ^| r/- ^| `0` ^| -   <| cause of last system reset; 0=external reset, 1=ocd-reset, 2=watchdog reset
-                                <|`7` -                 ^| r/- ^| -   ^| -   <| _reserved_, reads as zero
-                                <|`31:8` `WDT_CTRL_TIMEOUT_MSB : WDT_CTRL_TIMEOUT_LSB` ^| r/w ^| 0 ^| no <| 24-bit watchdog timeout value
-| `0xfffffb04` | `RESET`         |                       | -/w  | -    | yes  | Write PASSWORD to reset WDT timeout counter ("feed the watchdog")
+.5+<| `0xfffb0000` .5+<| `CTRL` <|`0`    `WDT_CTRL_EN`                                 ^| r/w ^| `0` ^| no  <| Watchdog enable
+                                <|`1`    `WDT_CTRL_LOCK`                               ^| r/w ^| `0` ^| no  <| Lock configuration when set, clears only on system reset
+                                <|`3:2`  `WDT_CTRL_RCAUSE_HI : WDT_CTRL_RCAUSE_LO`     ^| r/- ^| `0` ^| -   <| Cause of last system reset
+                                <|`7:4`  -                                             ^| r/- ^| -   ^| -   <| _reserved_, reads as zero
+                                <|`31:8` `WDT_CTRL_TIMEOUT_MSB : WDT_CTRL_TIMEOUT_LSB` ^| r/w ^| 0   ^| no  <| Timeout value (24-bit)
+| `0xfffb0004` | `RESET`         |`31:0`                                                | -/w  | -    | yes  | Write _PASSWORD_ to reset WDT timeout counter
 |=======================

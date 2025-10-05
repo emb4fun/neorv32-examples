@@ -1,97 +1,45 @@
-// #################################################################################################
-// # << NEORV32: neorv32_gpio.c - General Purpose Input/Output Port HW Driver (Source) >>          #
-// # ********************************************************************************************* #
-// # BSD 3-Clause License                                                                          #
-// #                                                                                               #
-// # Copyright (c) 2022, Stephan Nolting. All rights reserved.                                     #
-// #                                                                                               #
-// # Redistribution and use in source and binary forms, with or without modification, are          #
-// # permitted provided that the following conditions are met:                                     #
-// #                                                                                               #
-// # 1. Redistributions of source code must retain the above copyright notice, this list of        #
-// #    conditions and the following disclaimer.                                                   #
-// #                                                                                               #
-// # 2. Redistributions in binary form must reproduce the above copyright notice, this list of     #
-// #    conditions and the following disclaimer in the documentation and/or other materials        #
-// #    provided with the distribution.                                                            #
-// #                                                                                               #
-// # 3. Neither the name of the copyright holder nor the names of its contributors may be used to  #
-// #    endorse or promote products derived from this software without specific prior written      #
-// #    permission.                                                                                #
-// #                                                                                               #
-// # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS   #
-// # OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF               #
-// # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE    #
-// # COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,     #
-// # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE #
-// # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED    #
-// # AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING     #
-// # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED  #
-// # OF THE POSSIBILITY OF SUCH DAMAGE.                                                            #
-// # ********************************************************************************************* #
-// # The NEORV32 Processor - https://github.com/stnolting/neorv32              (c) Stephan Nolting #
-// #################################################################################################
+// ================================================================================ //
+// The NEORV32 RISC-V Processor - https://github.com/stnolting/neorv32              //
+// Copyright (c) NEORV32 contributors.                                              //
+// Copyright (c) 2020 - 2025 Stephan Nolting. All rights reserved.                  //
+// Licensed under the BSD-3-Clause license, see LICENSE for details.                //
+// SPDX-License-Identifier: BSD-3-Clause                                            //
+// ================================================================================ //
 
-
-/**********************************************************************//**
+/**
  * @file neorv32_gpio.c
  * @brief General purpose input/output port unit (GPIO) HW driver source file.
- *
- * @note These functions should only be used if the GPIO unit was synthesized (IO_GPIO_EN = true).
- **************************************************************************/
+ */
 
-#include "neorv32.h"
-#include "neorv32_gpio.h"
+#include <neorv32.h>
 
 
 /**********************************************************************//**
  * Check if GPIO unit was synthesized.
  *
- * @return 0 if GPIO was not synthesized, 1 if GPIO is available.
+ * @return 0 if GPIO was not synthesized, non-zero if GPIO is available.
  **************************************************************************/
 int neorv32_gpio_available(void) {
 
-  if (NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_GPIO)) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
+  return (int)(NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_GPIO));
 }
 
 
 /**********************************************************************//**
  * Set single pin of GPIO's output port.
  *
- * @param[in] pin Output pin number to be set (0..63).
+ * @param[in] pin Output pin number to be set (0..31).
+ * @param[in] value Set pint high (1) or low (0).
  **************************************************************************/
-void neorv32_gpio_pin_set(int pin) {
+void neorv32_gpio_pin_set(int pin, int value) {
 
-  uint32_t mask = (uint32_t)(1 << (pin & 0x1f));
+  uint32_t mask = (uint32_t)(1 << pin);
 
-  if (pin < 32) {
-    NEORV32_GPIO->OUTPUT_LO |= mask;
+  if (value) {
+    NEORV32_GPIO->PORT_OUT |= mask;
   }
   else {
-    NEORV32_GPIO->OUTPUT_HI |= mask;
-  }
-}
-
-
-/**********************************************************************//**
- * Clear single pin of GPIO's output port.
- *
- * @param[in] pin Output pin number to be cleared (0..63).
- **************************************************************************/
-void neorv32_gpio_pin_clr(int pin) {
-
-  uint32_t mask = (uint32_t)(1 << (pin & 0x1f));
-
-  if (pin < 32) {
-    NEORV32_GPIO->OUTPUT_LO &= ~mask;
-  }
-  else {
-    NEORV32_GPIO->OUTPUT_HI &= ~mask;
+    NEORV32_GPIO->PORT_OUT &= ~mask;
   }
 }
 
@@ -99,73 +47,126 @@ void neorv32_gpio_pin_clr(int pin) {
 /**********************************************************************//**
  * Toggle single pin of GPIO's output port.
  *
- * @param[in] pin Output pin number to be toggled (0..63).
+ * @param[in] pin Output pin number to be toggled (0..31).
  **************************************************************************/
 void neorv32_gpio_pin_toggle(int pin) {
 
-  uint32_t mask = (uint32_t)(1 << (pin & 0x1f));
-
-  if (pin < 32) {
-    NEORV32_GPIO->OUTPUT_LO ^= mask;
-  }
-  else {
-    NEORV32_GPIO->OUTPUT_HI ^= mask;
-  }
+  NEORV32_GPIO->PORT_OUT ^= (uint32_t)(1 << pin);
 }
 
 
 /**********************************************************************//**
  * Get single pin of GPIO's input port.
  *
- * @param[in] pin Input pin to be read (0..63).
- * @return =0 if pin is low, !=0 if pin is high.
+ * @param[in] pin Input pin to be read (0..31).
+ * @return zero if pin is low, non-zero if pin is high.
  **************************************************************************/
 uint32_t neorv32_gpio_pin_get(int pin) {
 
-  uint32_t mask = (uint32_t)(1 << (pin & 0x1f));
-
-  if (pin < 32) {
-    return NEORV32_GPIO->INPUT_LO & mask;
-  }
-  else {
-    return NEORV32_GPIO->INPUT_HI & mask;
-  }
+  return NEORV32_GPIO->PORT_IN & (uint32_t)(1 << pin);
 }
 
 
 /**********************************************************************//**
  * Set complete GPIO output port.
  *
- * @param[in] port_data New output port value (64-bit).
+ * @param[in] pin_mask New output port value (32-bit).
  **************************************************************************/
-void neorv32_gpio_port_set(uint64_t port_data) {
+void neorv32_gpio_port_set(uint32_t pin_mask) {
 
-  union {
-    uint64_t uint64;
-    uint32_t uint32[sizeof(uint64_t)/sizeof(uint32_t)];
-  } data;
+  NEORV32_GPIO->PORT_OUT = pin_mask;
+}
 
-  data.uint64 = port_data;
-  NEORV32_GPIO->OUTPUT_LO = data.uint32[0];
-  NEORV32_GPIO->OUTPUT_HI = data.uint32[1];
+
+/**********************************************************************//**
+ * Toggle bit in entire GPIO output port.
+ *
+ * @param[in] pin_mask Bit mask; set bits will toggle the according output pins (32-bit).
+ **************************************************************************/
+void neorv32_gpio_port_toggle(uint32_t pin_mask) {
+
+  NEORV32_GPIO->PORT_OUT ^= pin_mask;
 }
 
 
 /**********************************************************************//**
  * Get complete GPIO input port.
  *
- * @return Current input port state (64-bit).
+ * @return Current input port state (32-bit).
  **************************************************************************/
-uint64_t neorv32_gpio_port_get(void) {
+uint32_t neorv32_gpio_port_get(void) {
 
-  union {
-    uint64_t uint64;
-    uint32_t uint32[sizeof(uint64_t)/sizeof(uint32_t)];
-  } data;
-
-  data.uint32[0] = NEORV32_GPIO->INPUT_LO;
-  data.uint32[1] = NEORV32_GPIO->INPUT_HI;
-
-  return data.uint64;
+  return NEORV32_GPIO->PORT_IN;
 }
 
+
+/**********************************************************************//**
+ * Configure pin interrupt trigger.
+ *
+ * @param[in] pin Input pin select (0..31).
+ * @param[in] trigger Trigger select (#GPIO_TRIGGER_enum).
+ **************************************************************************/
+void neorv32_gpio_irq_setup(int pin, int trigger) {
+
+  uint32_t mask = (uint32_t)(1 << pin);
+
+  // trigger type
+  if ((trigger == GPIO_TRIG_EDGE_FALLING) || (trigger == GPIO_TRIG_EDGE_RISING)) {
+    NEORV32_GPIO->IRQ_TYPE |= mask; // set = edge
+  }
+  else {
+    NEORV32_GPIO->IRQ_TYPE &= ~mask; // clear = level
+  }
+
+  // polarity type
+  if ((trigger == GPIO_TRIG_EDGE_RISING) || (trigger == GPIO_TRIG_LEVEL_HIGH)) {
+    NEORV32_GPIO->IRQ_POLARITY |= mask; // set = rising edge / high level
+  }
+  else {
+    NEORV32_GPIO->IRQ_POLARITY &= ~mask; // clear = falling edge / low level
+  }
+}
+
+
+/**********************************************************************//**
+ * Enable input pin interrupt(s).
+ *
+ * @param[in] pin_mask Pin-IRQ enable mask (set to 1 to enable the according pin).
+ **************************************************************************/
+void neorv32_gpio_irq_enable(uint32_t pin_mask) {
+
+  NEORV32_GPIO->IRQ_ENABLE |= pin_mask;
+}
+
+
+/**********************************************************************//**
+ * Disable input pin interrupt(s).
+ *
+ * @param[in] pin_mask Pin-IRQ enable mask (set to 1 to disable the according pin).
+ **************************************************************************/
+void neorv32_gpio_irq_disable(uint32_t pin_mask) {
+
+  NEORV32_GPIO->IRQ_ENABLE &= ~pin_mask;
+}
+
+
+/**********************************************************************//**
+ * Get currently pending GPIO input interrupts.
+ *
+ * @param[in] Pending inputs (bit mask; high = pending).
+ **************************************************************************/
+uint32_t neorv32_gpio_irq_get(void) {
+
+  return NEORV32_GPIO->IRQ_PENDING;
+}
+
+
+/**********************************************************************//**
+ * Clear pending GPIO input interrupts via bit mask.
+ *
+ * @param[in] clr_mask Clear mask (bit high = clear according pending interrupt).
+ **************************************************************************/
+void neorv32_gpio_irq_clr(uint32_t clr_mask) {
+
+  NEORV32_GPIO->IRQ_PENDING = ~clr_mask;
+}

@@ -1,36 +1,47 @@
-# Dhrystone Benchmark
+## Dhrystone Benchmark
 
-:copyright: Original sources from [https://github.com/sifive/benchmark-dhrystone](https://github.com/sifive/benchmark-dhrystone) (also, see `LICENSE`).
-The source code has been modified for the NEORV32 processor.
+**:warning: The Dhrystone port is outdated. Have a look at the CoreMark port for benchmarking.**
 
-To compile the NEORV32 executable:
+:copyright: Original sources from [https://github.com/sifive/benchmark-dhrystone](https://github.com/sifive/benchmark-dhrystone);
+ see `LICENSE` file. The original source code has been modified for the NEORV32 RISC-V Processor.
+
+To compile the `main.exe` executable:
+
+```bash
+neorv32/sw/example/dhrystone$ make USER_FLAGS+=-DRUN_DHRYSTONE MARCH=rv32imc_zicsr_zifencei EFFORT=-O2 clean_all exe
+...
+Memory utilization:
+   text    data     bss     dec     hex filename
+   7976       0   10448   18424    47f8 main.elf
+Compiling ../../../sw/image_gen/image_gen
+Executable (neorv32_exe.bin) size in bytes:
+7988
 ```
-neorv32/sw/example/dhrystone$ sh dhrystone.sh
+
+The default number of iterations is 10000. You can modify this by adding `USER_FLAGS+=-DDHRY_ITERS=2000000` to the makefile invocation.
+Dhrystone will require an IMEM size of at least 8kB and a DMEM size of about 11kB. The CLINT machine timer is used for time benchmarking.
+Note that the Drhystone score is normalized to the original VAX machine (SiFive is giving a nice overview
+about this at https://www.sifive.com/blog/dhrystone-performance-tuning-on-the-freedom-platform):
+
 ```
-
-The default number of iterations is 2000000. You can modify this by changing `USER_FLAGS+=-DDHRY_ITERS=2000000` in `dhrystone.sh`.
-The default optimization level (EFFORT) is `O3`.
-
-:warning: Dhrystone will require an IMEM size of 16kB and a DMEM size of 16kB. The MTIME machine timer is used for timing evaluation.
-
-:construction: Porting Dhrystone is still work-in-progress. Performance results might be incorrect and not optimized.
-All results only show the integer parts.
+VAX DMIPS/s/MHz = dhrystone_iterations / execution_cycles * clock_frequency_in_hz / 1757
+```
 
 ### Exemplary Output
 
-Output generated for processor HW version [v1.5.9.1](https://github.com/stnolting/neorv32/blob/main/CHANGELOG.md)
-using performance-optimized configuration options.
+Output generated for processor HW version [v1.9.9.2](https://github.com/stnolting/neorv32/blob/main/CHANGELOG.md).
+All results only show the integer parts.
 
 ```
 NEORV32: Processor running at 100000000 Hz
-NEORV32: Executing Dhrystone (2000000 iterations). This may take some time...
+NEORV32: Executing Dhrystone (10000 iterations). This may take some time...
 
 
 Dhrystone Benchmark, Version 2.1 (Language: C)
 
 Program compiled without 'register' attribute
 
-Execution starts, 2000000 runs through Dhrystone
+Execution starts, 10000 runs through Dhrystone
 Execution ends
 
 Final values of the variables used in the benchmark:
@@ -45,10 +56,10 @@ Ch_2_Glob:           B
         should be:   B
 Arr_1_Glob[8]:       7
         should be:   7
-Arr_2_Glob[8][7]:    2000010
+Arr_2_Glob[8][7]:    10010
         should be:   Number_Of_Runs + 10
 Ptr_Glob->
-  Ptr_Comp:          -2147467428
+  Ptr_Comp:          2147483732
         should be:   (implementation-dependent)
   Discr:             0
         should be:   0
@@ -59,7 +70,7 @@ Ptr_Glob->
   Str_Comp:          DHRYSTONE PROGRAM, SOME STRING
         should be:   DHRYSTONE PROGRAM, SOME STRING
 Next_Ptr_Glob->
-  Ptr_Comp:          -2147467428
+  Ptr_Comp:          2147483732
         should be:   (implementation-dependent), same as above
   Discr:             0
         should be:   0
@@ -83,16 +94,16 @@ Str_2_Loc:           DHRYSTONE PROGRAM, 2'ND STRING
         should be:   DHRYSTONE PROGRAM, 2'ND STRING
 
 Microseconds for one run through Dhrystone: 13
-Dhrystones per Second:                      76923
+Dhrystones per Second:                      72939
 
 NEORV32: << DETAILED RESULTS (integer parts only) >>
-NEORV32: Total cycles:      2662000187
+NEORV32: Total cycles:      13710151
 NEORV32: Cycles per second: 100000000
-NEORV32: Total runs:        2000000
+NEORV32: Total runs:        10000
 
-NEORV32: DMIPS/s:           76923
-NEORV32: DMIPS/MHz:         769
+NEORV32: DMIPS/s:           72939
+NEORV32: DMIPS/s/MHz:       729
 
-NEORV32: VAX DMIPS/s:       43
-NEORV32: VAX DMIPS/MHz:     43/100
+NEORV32: VAX DMIPS/s:       41
+NEORV32: VAX DMIPS/s/MHz:   729/1757
 ```

@@ -1,5 +1,0 @@
-<!DOCTYPE Board_Memory_Definition_File>
-<root name="NEORV32">
-  <MemorySegment name="IMEM"  start="0x00000000" size="0x00004000" access="Read/Write" />
-  <MemorySegment name="DMEM"  start="0x80000000" size="0x00002000" access="Read/Write" />
-</root>

@@ -1,91 +1,81 @@
-/* ################################################################################################# */
-/* # << NEORV32 - park_loop.S - Execution-Based On-Chip Debugger Firmware - Park Loop Code >>      # */
-/* # ********************************************************************************************* # */
-/* # BSD 3-Clause License                                                                          # */
-/* #                                                                                               # */
-/* # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     # */
-/* #                                                                                               # */
-/* # Redistribution and use in source and binary forms, with or without modification, are          # */
-/* # permitted provided that the following conditions are met:                                     # */
-/* #                                                                                               # */
-/* # 1. Redistributions of source code must retain the above copyright notice, this list of        # */
-/* #    conditions and the following disclaimer.                                                   # */
-/* #                                                                                               # */
-/* # 2. Redistributions in binary form must reproduce the above copyright notice, this list of     # */
-/* #    conditions and the following disclaimer in the documentation and/or other materials        # */
-/* #    provided with the distribution.                                                            # */
-/* #                                                                                               # */
-/* # 3. Neither the name of the copyright holder nor the names of its contributors may be used to  # */
-/* #    endorse or promote products derived from this software without specific prior written      # */
-/* #    permission.                                                                                # */
-/* #                                                                                               # */
-/* # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS   # */
-/* # OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF               # */
-/* # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE    # */
-/* # COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,     # */
-/* # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE # */
-/* # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED    # */
-/* # AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING     # */
-/* # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED  # */
-/* # OF THE POSSIBILITY OF SUCH DAMAGE.                                                            # */
-/* # ********************************************************************************************* # */
-/* # The NEORV32 Processor - https://github.com/stnolting/neorv32              (c) Stephan Nolting # */
-/* ################################################################################################# */
-
-// debug module (DM) address map
-.equ DM_CODE_BASE, 0xffffff00 // base address of debug_module's code ROM (park loop)
-.equ DM_PBUF_BASE, 0xffffff40 // base address of debug_module's program buffer (PBUF)
-.equ DM_DATA_BASE, 0xffffff80 // base address of debug_module's abstract data buffer (DATA)
-.equ DM_SREG_BASE, 0xffffffC0 // base address of debug_module's status register
-
-// status register (SREG) byte(!) offsets
-.equ SREG_HLT_ACK, ( 0 / 8) // -/w: CPU has halted in debug mode and is waiting in park loop
-.equ SREG_RES_REQ, ( 8 / 8) // r/-: DM requests to resume
-.equ SREG_RES_ACK, ( 8 / 8) // -/w: CPU starts to resume
-.equ SREG_EXE_REQ, (16 / 8) // r/-: DM requests to execute program buffer
-.equ SREG_EXE_ACK, (16 / 8) // -/w: CPU starts to execute program buffer
-.equ SREG_EXC_ACK, (24 / 8) // -/w: CPU has detected an exception while in debug-mode
+// ================================================================================ //
+// NEORV32 CPU - park_loop.S - Execution-Based On-Chip Debugger (OCD) Firmware      //
+// -------------------------------------------------------------------------------- //
+// [NOTE] compile this code with minimal ISA configuration: rv32e_zicsr_zifencei    //
+// -------------------------------------------------------------------------------- //
+// The NEORV32 RISC-V Processor - https://github.com/stnolting/neorv32              //
+// Copyright (c) NEORV32 contributors.                                              //
+// Copyright (c) 2020 - 2025 Stephan Nolting. All rights reserved.                  //
+// Licensed under the BSD-3-Clause license, see LICENSE for details.                //
+// SPDX-License-Identifier: BSD-3-Clause                                            //
+// ================================================================================ //
 
 .file	"park_loop.S"
-.section .text
+.section .text.ocd
 .balign 4
 .option norvc
-.global __start
+.global _ocd_start
 .global entry_exception
-.global entry_normal
+.global entry_park
 
-__start:
+// debug module (DM) address map
+.equ DM_CODE_BASE, 0xFFFFFE00 // base address of code ROM (park loop)
+.equ DM_PBUF_BASE, 0xFFFFFE80 // base address of program buffer
+.equ DM_DATA_BASE, 0xFFFFFF00 // base address of abstract data buffer
+.equ DM_SREG_BASE, 0xFFFFFF80 // base address of status register(s)
 
-// BASE + 0: exception entry - signal EXCEPTION condition to DM and restart parking loop
+// Request register (DM_SREG_BASE read-access) byte-field bits
+.equ REQ_RES, 0 // r/-: DM requests to resume
+.equ REQ_EXE, 1 // r/-: DM requests to execute program buffer
+
+// Acknowledge register (DM_SREG_BASE write-access) address offsets
+.equ ACK_HLT, 0x0 // -/w: CPU has halted in debug mode and is waiting in park loop
+.equ ACK_RES, 0x4 // -/w: CPU starts to resume
+.equ ACK_EXE, 0x8 // -/w: CPU starts to execute program buffer
+.equ ACK_EXC, 0xC // -/w: CPU has detected an exception while in debug-mode
+
+_ocd_start:
+
+// BASE + 0: exception entry - exeption during program buffer execution
 entry_exception:
-  sb      zero, (DM_SREG_BASE+SREG_EXC_ACK)(zero) // trigger exception-acknowledge to inform DM
-  ebreak                                          // re-enter debug mode (at "entry_normal" entry point)
+  sw      zero, (DM_SREG_BASE+ACK_EXC)(zero)  // send exception-acknowledge (no need for a hart ID)
 
-// BASE + 8: normal entry - ebreak in debug-mode, halt request or return from single-stepped instruction
-entry_normal:
-  csrw    dscratch0, x8                           // backup x8 to dscratch0 so we have a GPR available
+// BASE + 4: normal entry - halt CPU: ebreak, halt request or return from single-stepped instruction
+entry_park:
+  csrw    dscratch0, x8                       // backup x8 to dscratch0 so we have a GPR available
+  csrr    x8, mhartid                         // get hart ID
+  sw      x8, (DM_SREG_BASE+ACK_HLT)(zero)    // send halt-acknowledge
 
-// polling loop - waiting for requests
+// polling loop (wait for debugger requests)
 park_loop:
-  sb      zero, (DM_SREG_BASE+SREG_HLT_ACK)(zero) // ACK that CPU is halted
-  lbu     x8,   (DM_SREG_BASE+SREG_EXE_REQ)(zero) // request to execute program buffer?
-  bnez    x8,   execute
-  lbu     x8,   (DM_SREG_BASE+SREG_RES_REQ)(zero) // request to resume?
-  beqz    x8,   park_loop
+  csrr    x8, mhartid                         // get hart ID
+  lbu     x8, DM_SREG_BASE(x8)                // read hart-specific byte from request register
+  andi    x8, x8, 1 << REQ_EXE                // execute-request bit set?
+  bnez    x8, execute
 
-// resume normal operation
+  csrr    x8, mhartid                         // get hart ID
+  lbu     x8, DM_SREG_BASE(x8)                // read hart-specific byte from request register
+  andi    x8, x8, 1 << REQ_RES                // resume-request bit set?
+  beqz    x8, park_loop
+
+// resume normal operation (exit debug mode)
 resume:
-  sb      zero, (DM_SREG_BASE+SREG_RES_ACK)(zero) // ACK that CPU is about to resume
-  csrr    x8,   dscratch0                         // restore x8 from dscratch0
-  dret                                            // exit debug mode
+  csrr    x8, mhartid                         // get hart ID
+  sw      x8, (DM_SREG_BASE+ACK_RES)(zero)    // send resume-acknowledge
+  csrr    x8, dscratch0                       // restore x8 from dscratch0
+  fence                                       // synchronize d-cache and main memory
+  fence.i                                     // synchronize i-cache and main memory
+  dret                                        // exit debug mode
 
-// execute program buffer
+// execute program buffer (implicit ebreak at the end of the buffer will bring us back to "entry_park")
 execute:
-  sb      zero, (DM_SREG_BASE+SREG_EXE_ACK)(zero) // ACK that execution is about to start
-  csrr    x8,   dscratch0                         // restore x8 from dscratch0
-  fence.i                                         // synchronize i-cache and prefetch with memory (PBUF)
-  jalr    zero, zero, %lo(DM_PBUF_BASE)           // jump to beginning of program buffer (PBUF)
+  csrr    x8, mhartid                         // get hart ID
+  sw      x8, (DM_SREG_BASE+ACK_EXE)(zero)    // send execute-acknowledge
+  csrr    x8, dscratch0                       // restore x8 from dscratch0
+  jalr    zero, zero, %lo(DM_PBUF_BASE)       // jump to beginning of program buffer (PBUF)
 
 // fill remaining ROM space with instructions that cause a debug-mode-internal exception
-unused:
-  ecall                                           // should never be reached
+terminate:
+.rept 10
+  ecall
+.endr

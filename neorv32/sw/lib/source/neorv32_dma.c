@@ -1,62 +1,61 @@
-// #################################################################################################
-// # << NEORV32: neorv32_dma.c - Direct Memory Access Controller (DMA) HW Driver >>                #
-// # ********************************************************************************************* #
-// # BSD 3-Clause License                                                                          #
-// #                                                                                               #
-// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
-// #                                                                                               #
-// # Redistribution and use in source and binary forms, with or without modification, are          #
-// # permitted provided that the following conditions are met:                                     #
-// #                                                                                               #
-// # 1. Redistributions of source code must retain the above copyright notice, this list of        #
-// #    conditions and the following disclaimer.                                                   #
-// #                                                                                               #
-// # 2. Redistributions in binary form must reproduce the above copyright notice, this list of     #
-// #    conditions and the following disclaimer in the documentation and/or other materials        #
-// #    provided with the distribution.                                                            #
-// #                                                                                               #
-// # 3. Neither the name of the copyright holder nor the names of its contributors may be used to  #
-// #    endorse or promote products derived from this software without specific prior written      #
-// #    permission.                                                                                #
-// #                                                                                               #
-// # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS   #
-// # OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF               #
-// # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE    #
-// # COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,     #
-// # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE #
-// # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED    #
-// # AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING     #
-// # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED  #
-// # OF THE POSSIBILITY OF SUCH DAMAGE.                                                            #
-// # ********************************************************************************************* #
-// # The NEORV32 Processor - https://github.com/stnolting/neorv32              (c) Stephan Nolting #
-// #################################################################################################
+// ================================================================================ //
+// The NEORV32 RISC-V Processor - https://github.com/stnolting/neorv32              //
+// Copyright (c) NEORV32 contributors.                                              //
+// Copyright (c) 2020 - 2025 Stephan Nolting. All rights reserved.                  //
+// Licensed under the BSD-3-Clause license, see LICENSE for details.                //
+// SPDX-License-Identifier: BSD-3-Clause                                            //
+// ================================================================================ //
 
-
-/**********************************************************************//**
+/**
  * @file neorv32_wdt.c
  * @brief Direct Memory Access Controller (DMA) HW driver source file.
- *
- * @note These functions should only be used if the DMA controller was synthesized (IO_DMA_EN = true).
- **************************************************************************/
+ */
 
-#include "neorv32.h"
-#include "neorv32_dma.h"
+#include <neorv32.h>
 
 
 /**********************************************************************//**
  * Check if DMA controller was synthesized.
  *
- * @return 0 if DMA was not synthesized, 1 if DMA is available.
+ * @return 0 if DMA was not synthesized, non-zero if DMA is available.
  **************************************************************************/
 int neorv32_dma_available(void) {
 
-  if (NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_DMA)) {
-    return 1;
-  }
-  else {
-    return 0;
-  }
+  return (int)(NEORV32_SYSINFO->SOC & (1 << SYSINFO_SOC_IO_DMA));
+}
+
+
+/**********************************************************************//**
+ * Get DMA descriptor FIFO depth.
+ *
+ * @return FIFO depth (number of entries)
+ **************************************************************************/
+int neorv32_dma_get_descriptor_fifo_depth(void) {
+
+  uint32_t tmp = (NEORV32_DMA->CTRL >> DMA_CTRL_DFIFO_LSB) & 0xf;
+  return (int)(1 << tmp);
+}
+
+
+/**********************************************************************//**
+ * Check if descriptor FIFO is full.
+ *
+ * @return Non-zero if FIFO is full, zero otherwise.
+ **************************************************************************/
+int neorv32_dma_descriptor_fifo_full(void) {
+
+  return (int)(NEORV32_DMA->CTRL & (1 << DMA_CTRL_DFULL));
+}
+
+
+/**********************************************************************//**
+ * Check if descriptor FIFO is empty.
+ *
+ * @return Non-zero if FIFO is empty, zero otherwise.
+ **************************************************************************/
+int neorv32_dma_descriptor_fifo_empty(void) {
+
+  return (int)(NEORV32_DMA->CTRL & (1 << DMA_CTRL_DEMPTY));
 }
 
 
@@ -79,42 +78,61 @@ void neorv32_dma_disable(void) {
 
 
 /**********************************************************************//**
- * Trigger manual DMA transfer.
- *
- * @param[in] base_src Source base address (has to be aligned to source data type!).
- * @param[in] base_dst Destination base address (has to be aligned to destination data type!).
- * @param[in] num Number of elements to transfer (24-bit).
- * @param[in] config Transfer type configuration/commands.
+ * Manually clear pending DMA interrupt. This will also clear the
+ * transfer-error and transfer-done status flags.
  **************************************************************************/
-void neorv32_dma_transfer(uint32_t base_src, uint32_t base_dst, uint32_t num, uint32_t config) {
+void neorv32_dma_irq_ack(void) {
 
-  NEORV32_DMA->CTRL &= ~((uint32_t)(1 << DMA_CTRL_AUTO)); // manual transfer trigger
-  NEORV32_DMA->SRC_BASE = base_src;
-  NEORV32_DMA->DST_BASE = base_dst;
-  NEORV32_DMA->TTYPE    = (num & 0x00ffffffUL) | (config & 0xff000000UL); // trigger transfer
+  NEORV32_DMA->CTRL |= (uint32_t)(1 << DMA_CTRL_ACK);
 }
 
 
 /**********************************************************************//**
- * Configure automatic DMA transfer (triggered by CPU FIRQ).
+ * Program DMA descriptor.
  *
- * @param[in] base_src Source base address (has to be aligned to source data type!).
- * @param[in] base_dst Destination base address (has to be aligned to destination data type!).
- * @param[in] num Number of elements to transfer (24-bit).
- * @param[in] config Transfer type configuration/commands.
- * @param[in] firq_mask FIRQ trigger mask (#NEORV32_CSR_MIP_enum).
+ * @param[in] base_src Source data base address.
+ * @param[in] base_dst Destination data base address.
+ * @param[in] config Transfer type configuration (#NEORV32_DMA_CONF_enum).
+ *
+ * @return 0 if programming was successful; if the descriptor FIFO does not
+ * provide enough space for the entire descriptor, a negative value is returned
+ * that represents the number of missing FIFO entries.
  **************************************************************************/
-void neorv32_dma_transfer_auto(uint32_t base_src, uint32_t base_dst, uint32_t num, uint32_t config, uint32_t firq_mask) {
+int neorv32_dma_program(uint32_t src_addr, uint32_t dst_addr, uint32_t config) {
 
-  uint32_t tmp = NEORV32_DMA->CTRL;
-  tmp |= (uint32_t)(1 << DMA_CTRL_AUTO); // automatic transfer trigger
-  tmp &= 0x0000ffffUL; // clear current FIRQ mask
-  tmp |= firq_mask & 0xffff0000UL; // set new FIRQ mask
-  NEORV32_DMA->CTRL = tmp;
+  if (NEORV32_DMA->CTRL & (1 << DMA_CTRL_DFULL)) { return -3; } // three free entries too few
+  NEORV32_DMA->DESC = src_addr;
+  if (NEORV32_DMA->CTRL & (1 << DMA_CTRL_DFULL)) { return -2; } // two free entries too few
+  NEORV32_DMA->DESC = dst_addr;
+  if (NEORV32_DMA->CTRL & (1 << DMA_CTRL_DFULL)) { return -1; } // one free entry too few
+  NEORV32_DMA->DESC = config;
+  return 0;
+}
 
-  NEORV32_DMA->SRC_BASE = base_src;
-  NEORV32_DMA->DST_BASE = base_dst;
-  NEORV32_DMA->TTYPE    = (num & 0x00ffffffUL) | (config & 0xff000000UL);
+
+/**********************************************************************//**
+ * Program DMA descriptor (without checking FIFO level).
+ *
+ * @warning Descriptor FIFO might overflow. Use with care.
+ *
+ * @param[in] base_src Source data base address.
+ * @param[in] base_dst Destination data base address.
+ * @param[in] config Transfer type configuration (#NEORV32_DMA_CONF_enum).
+ **************************************************************************/
+void neorv32_dma_program_nocheck(uint32_t src_addr, uint32_t dst_addr, uint32_t config) {
+
+  NEORV32_DMA->DESC = src_addr;
+  NEORV32_DMA->DESC = dst_addr;
+  NEORV32_DMA->DESC = config;
+}
+
+
+/**********************************************************************//**
+ * Trigger pre-programmed DMA transfer(s)
+ **************************************************************************/
+void neorv32_dma_start(void) {
+
+  NEORV32_DMA->CTRL |= 1 << DMA_CTRL_START;
 }
 
 
@@ -127,14 +145,14 @@ int neorv32_dma_status(void) {
 
   uint32_t tmp = NEORV32_DMA->CTRL;
 
-  if (tmp & (1 << DMA_CTRL_ERROR_WR)) {
-    return DMA_STATUS_ERR_WR; // error during write access
-  }
-  else if (tmp & (1 << DMA_CTRL_ERROR_RD)) {
-    return DMA_STATUS_ERR_RD; // error during read access
+  if (tmp & (1 << DMA_CTRL_ERROR)) {
+    return DMA_STATUS_ERROR; // error during transfer
   }
   else if (tmp & (1 << DMA_CTRL_BUSY)) {
     return DMA_STATUS_BUSY; // transfer in progress
+  }
+  else if (tmp & (1 << DMA_CTRL_DONE)) {
+    return DMA_STATUS_DONE; // transfer done
   }
   else {
     return DMA_STATUS_IDLE; // idle

@@ -29,7 +29,7 @@
       project_type="Executable"
       rv_abi="ilp32"
       rv_arch_ext=""
-      rv_architecture="rv32ic"
+      rv_architecture="rv32imc"
       rv_debug_extensions="None"
       rv_toolchain_prefix=""
       stack_size="1024"
@@ -46,20 +46,29 @@
     <folder Name="Source Files">
       <configuration Name="Common" filter="c;cpp;cxx;cc;h;s;asm;inc" />
       <folder Name="lib">
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_aux.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_cfs.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_clint.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_cpu.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_cpu_cfu.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_dma.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_gpio.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_gptmr.c" />
-        <file file_name="../../../../neorv32/sw/lib/source/neorv32_mtime.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_neoled.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_onewire.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_pwm.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_rte.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_sdi.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_semihosting.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_slink.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_smp.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_spi.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_tracer.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_trng.c" />
+        <file file_name="../../../../neorv32/sw/lib/source/neorv32_twd.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_twi.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_uart.c" />
         <file file_name="../../../../neorv32/sw/lib/source/neorv32_wdt.c" />
-        <file file_name="../../../../neorv32/sw/lib/source/neorv32_xirq.c" />
       </folder>
       <folder Name="src">
         <file file_name="../src/main.c" />

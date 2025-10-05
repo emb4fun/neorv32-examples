@@ -1,0 +1,235 @@
+<<<
+:sectnums:
+== Eclipse IDE
+
+Eclipse (https://www.eclipse.org/) is a free and open-source interactive development environment that can be used
+to develop, debug and profile application code for the NEORV32 RISC-V Processor. This chapter shows how to import
+the provided **example setup** from the NEORV32 project repository. Additionally, all the required steps to create
+a compatible project from scratch are illustrated in this chapter.
+
+.This is a Makefile-Based Eclipse Project!
+[IMPORTANT]
+Note that the provided Eclipse example project (as well as the setup tutorial in this section) implements a
+**makefile-based project**. Hence, the makefile in the example folder is used for building the application
+instead of the Eclipse-managed build system. Therefore, **all compiler options, include folder, source files,
+etc. have to be defined within this makefile**.
+
+.Developing and debugging code for the NEORV32 using the Eclipse IDE
+image::eclipse.png[align=center]
+
+
+:sectnums:
+=== Eclipse Prerequisites
+
+The following tools are required:
+
+* Eclipse IDE (**Eclipse IDE for Embedded C/C++ Developers**): https://www.eclipse.org/downloads/
+* Precompiled RISC-V GCC toolchain: e.g. https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack
+* Precompiled OpenOCD binaries: e.g. https://github.com/xpack-dev-tools/openocd-xpack
+* Build tools like `make` and busybox: e.g. https://github.com/xpack-dev-tools/windows-build-tools-xpack
+
+.XPack Windows Build Tools
+[TIP]
+Some NEORV32 makefile targets relies on the `basename` command which might not be part of the default
+XPack Windows Build Tools. However, you can just open the according `bin` folder, copy `busybox.exe`
+and rename that copy to `basename.exe`.
+
+
+:sectnums:
+=== Import The Provided Eclipse Example Project
+
+A preconfigured Eclipse project is available in `neorv32/sw/example/eclipse`.
+To import it:
+
+[start=1]
+. Open Eclipse.
+. Click on **File > Import**, expand **General** and select **Projects from Folder or Archive**.
+. Click **Next**.
+. Click on **Directory** and select the provided example project folder (see directory above).
+. Click **Finish**.
+
+.NEORV32 Folder and File Paths
+[IMPORTANT]
+The provided example project uses **relative paths** for including all the NEORV32-specific files and folders
+(in the Eclipse configuration files). Note that these paths need to be adjusted when moving the example setup
+to a different location.
+
+.Tool Configuration
+[IMPORTANT]
+Make sure to adjust the binaries / installation folders of the RISC-V GCC toolchain, openOCD and Windows build tools
+according to your installation. See the section <<_configure_build_tools>> for more information.
+
+.Makefile Adjustment
+[IMPORTANT]
+Make sure to adjust the variables inside the project's makefile to match your processor
+configuration (memory sizes, CPU ISA configuration, etc.):
+https://stnolting.github.io/neorv32/#_application_makefile
+
+
+:sectnums:
+=== Setup a new Eclipse Project from Scratch
+
+This chapter shows all the steps required to create an Eclipse project for the NEORV32 entirely from scratch.
+
+==== Create a new Project
+
+[start=1]
+. Select **File > New > Project**.
+. Expand **C/C++** and select **C++ project**.
+. In the **C++ Project** wizard:
+* Enter a **Project name**.
+* Uncheck the box next to **Use default location** and specify a location using **Browse** where you want to create the project.
+* From the **Project type** list expand **Makefile project** and select **Empty Project**.
+* Select **RISC-V Cross GCC** from the **Toolchain** list on the right side.
+* Click **Next**.
+* Skip the next page using the default configuration by clicking **Next**.
+. In the **GNU RISC-V Cross Toolchain** wizard configure the **Toolchain name** and **Toolchain path** according to your RISC-V GCC installation.
+* Example: `Toolchain name: xPack GNU RISC-V Embedded GCC (riscv-none-elf-gcc)`
+* Example: `Toolchain path: C:\Program Files (x86)\xpack-riscv-none-elf-gcc-13.2.0-2\bin`
+. Click **Finish**.
+
+If you need to reconfigure the RISC-V GCC binaries and/or paths:
+
+[start=1]
+. right-click on the project in the left view, select **Properties**
+. expand **MCU** and select **RISC-V Toolchain Paths**
+. adjust the **Toolchain folder** and the **Toolchain name** if required
+. Click **Apply**.
+
+==== Add Initial Files
+
+Start a simple project by adding two initial files. Further files can be added later. Only the makefile is really
+relevant here.
+
+[start=1]
+. Add a new file by right-clicking on the project and select **New > File** and enter `main.c` in the filename box.
+. Add another new file by right-clicking on the project and select **New > File** and enter `makefile` in the filename
+. Copy the makefile of an existing NEORV32 example program and paste it to the new (empty) makefile.
+
+==== Add Build Targets (optional)
+
+This step adds some of the targets of the NEORV32 makefile for easy access. This step is optional.
+
+[start=1]
+. In the project explorer right-click on the project and select **Build Target > Create...**.
+. Add "`all`" as **Target name** (keep all the default checked boxes).
+. Repeat these steps for all further targets that you wish to add (e..g `clean_all`, `exe`, `elf`).
+
+.Clean-All Target
+[TIP]
+Adding the `clean_all` target is highly recommended. Executing this target once after importing the project ensures
+that there are no (incompatible) artifacts left from previous builds.
+
+.Available Target
+[TIP]
+See the NEORV32 data sheet for a list and description of all available makefile targets:
+https://stnolting.github.io/neorv32/#_makefile_targets
+
+==== Configure Build Tools
+
+This step is only required if your system does not provide any build tools (like `make`) by default.
+
+[start=1]
+. In the project explorer right-click on the project and select **Properties**.
+. Expand **MCU** and click on **Build Tools Path**.
+. Configure the **Build tools folder**.
+* Example: `Build tools folder: C:/xpack/xpack-windows-build-tools-4.4.1-2/bin`
+. Click **Apply and Close**.
+
+==== Adjust Default Build Configuration (optional)
+
+This will simplify the auto-build by replacing the default `make all` command by `make elf`. Thus, only
+the required `main.elf` file gets generated instead of _all_ executable files (like HDL and memory image files).
+
+[start=1]
+. In the project explorer right-click on the project and select **Properties**.
+. Select **C/C++ Build** and click on the **Behavior** Tab.
+. Update the default targets in the **Workbench Build Behavior** box:
+* **Build on resource save:** `elf` (only build the ELF file)
+* **Build (Incremental build):** `elf` (only build the ELF file)
+* **Clean:** `clean` (only remove project-local build artifacts)
+. Click **Apply and Close**.
+
+==== Add NEORV32 Software Framework
+
+[start=1]
+. In the project explorer right-click on the project and select **Properties**.
+. Expand **C/C++ General**, click on **Paths and Symbols** and highlight **Assembly** under **Languages**.
+. In the **Include** tab click **Add...**
+* Check the box in front of **Add to all languages** and click on **File System...** and select the NEORV32 library include folder (`path/to/neorv32/sw/lib/include`).
+* Click **OK**.
+. In the **Include** tab click **Add...**.
+* Check the box in front of **Add to all languages** and click on **File System...** and select the NEORV32 commons folder (`path/to/neorv32/sw/common`).
+* Click **OK**.
+. Click on the *Source Location** tab and click **Link Folder...**.
+* Check the box in front of **Link to folder in the system** and click the **Browse** button.
+* Select the source folder of the NEORV32 software framework (`path/to/neorv32/sw/lib/source`).
+* Click **OK**.
+. Click **Apply and Close**.
+
+==== Setup OpenOCD
+
+[start=1]
+. In the project explorer right-click on the project and select **Properties**.
+. Expand **MCU** and select **OpenOCD Path**.
+* Configure the **Executable** and **Folder** according to your openOCD installation.
+* Example: `Executable: openocd.exe`
+* Example: `Folder: C:\OpenOCD\bin`
+* Click **Apply and Close**.
+. In the top bar of Eclipse click on the tiny arrow right next to the **Debug** bug icon and select **Debug Configurations**.
+. Double-click on **GDB OpenOCD Debugging**; several menu tabs will open on the right.
+* In the **Main** tab add `main.elf` to the **C/C++ Application** box.
+* In the **Debugger** tab add the NEORV32 OpenOCD script with a `-f` in front of it-
+* Example: `Config options: -f ../../openocd/openocd_neorv32.cfg`
+* In the **Startup** tab uncheck he box in front of **Initial Reset** and add `monitor reset halt` to the box below.
+* In the "Common" tab mark **Shared file** to store the run-configuration right in the project folder instead of the workspace(optional).
+* In the **SVD Path** tab add the NEORV32 SVD file (`path/to/neorv32/sw/svd/neorv32.svd`).
+. Click **Apply** and then **Close**.
+
+.Default Debug Configuration
+[NOTE]
+When you start debugging the first time you might need to select the provided debug configuration:
+**GDB OpenOCD Debugging > eclipse_example Default**
+
+.Debug Symbols
+[IMPORTANT]
+For debugging the ELF has to compiled to contain according debug symbols.
+Debug symbols are enabled by the project's local makefile: `USER_FLAGS += -ggdb -gdwarf-3`
+(this configuration seems to work best for Eclipse - at least for me).
+
+If you need to reconfigure OpenOCD binaries and/or paths:
+
+[start=1]
+. right-click on the project in the left view, select **Properties**
+. expand **MCU** and select **OpenOCD Path**
+. adjust the **Folder** and the **Executable** name if required
+. Click **Apply**.
+
+==== Setup Serial Terminal
+
+A serial terminal can be added to Eclipse by installing it as a plugin.
+I recommend "TM Terminal" which is already installed in some Eclipse bundles.
+
+Open a TM Terminal serial console:
+
+[start=1]
+. Click on **Window > Show View > Terminal** to open the terminal.
+. A **Terminal** tab appears on the bottom. Click the tiny screen button on the right (or press Ctrl+Alt+Shift)
+to open the terminal configuration.
+. Select **Serial Terminal** in **Choose Terminal** and configure the settings according to the processor's
+UART configuration.
+
+Installing TM Terminal from the Eclipse market place:
+
+[start=1]
+. Click on **Help > Eclipse Marketplace...**.
+. Enter "TM Terminal" to the **Find** line and hit enter.
+. Select **TM Terminal** from the list and install it.
+. After installation restart Eclipse.
+
+
+=== Eclipse Setup References
+
+* Eclipse help: https://help.eclipse.org/latest/index.jsp
+* Importing an existing project into Eclipse: https://help.eclipse.org/latest/index.jsp?topic=%2Forg.eclipse.cdt.doc.user%2Fgetting_started%2Fcdt_w_import.htm
+* Eclipse OpenOCD Plug-In: https://eclipse-embed-cdt.github.io/debug/openocd/

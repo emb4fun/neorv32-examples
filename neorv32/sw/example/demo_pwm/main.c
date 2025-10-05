@@ -1,36 +1,10 @@
-// #################################################################################################
-// # << NEORV32 - PWM Demo Program >>                                                              #
-// # ********************************************************************************************* #
-// # BSD 3-Clause License                                                                          #
-// #                                                                                               #
-// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
-// #                                                                                               #
-// # Redistribution and use in source and binary forms, with or without modification, are          #
-// # permitted provided that the following conditions are met:                                     #
-// #                                                                                               #
-// # 1. Redistributions of source code must retain the above copyright notice, this list of        #
-// #    conditions and the following disclaimer.                                                   #
-// #                                                                                               #
-// # 2. Redistributions in binary form must reproduce the above copyright notice, this list of     #
-// #    conditions and the following disclaimer in the documentation and/or other materials        #
-// #    provided with the distribution.                                                            #
-// #                                                                                               #
-// # 3. Neither the name of the copyright holder nor the names of its contributors may be used to  #
-// #    endorse or promote products derived from this software without specific prior written      #
-// #    permission.                                                                                #
-// #                                                                                               #
-// # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS   #
-// # OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF               #
-// # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE    #
-// # COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,     #
-// # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE #
-// # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED    #
-// # AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING     #
-// # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED  #
-// # OF THE POSSIBILITY OF SUCH DAMAGE.                                                            #
-// # ********************************************************************************************* #
-// # The NEORV32 Processor - https://github.com/stnolting/neorv32              (c) Stephan Nolting #
-// #################################################################################################
+// ================================================================================ //
+// The NEORV32 RISC-V Processor - https://github.com/stnolting/neorv32              //
+// Copyright (c) NEORV32 contributors.                                              //
+// Copyright (c) 2020 - 2025 Stephan Nolting. All rights reserved.                  //
+// Licensed under the BSD-3-Clause license, see LICENSE for details.                //
+// SPDX-License-Identifier: BSD-3-Clause                                            //
+// ================================================================================ //
 
 
 /**********************************************************************//**
@@ -48,10 +22,19 @@
 /**@{*/
 /** UART BAUD rate */
 #define BAUD_RATE 19200
-/** Maximum PWM output intensity (8-bit) */
-#define PWM_MAX 200
+/** Maximum PWM output intensity (8-bit duty cycle) */
+#define MAX_DUTY 200
 /**@}*/
 
+
+/**********************************************************************//**
+ * Simple bus-wait helper.
+ *
+ * @param[in] time_ms Time in ms to wait (unsigned 32-bit).
+ **************************************************************************/
+void delay_ms(uint32_t time_ms) {
+  neorv32_aux_delay_ms(neorv32_sysinfo_get_clk(), time_ms);
+}
 
 
 /**********************************************************************//**
@@ -87,49 +70,61 @@ int main() {
 
   int num_pwm_channels = neorv32_pmw_get_num_channels();
 
-  // check number of PWM channels
+  // get number of implemented PWM channels
   if (neorv32_uart0_available()) {
     neorv32_uart0_printf("Implemented PWM channels: %i\n\n", num_pwm_channels);
   }
 
-
-  // deactivate all PWM channels
+  // deactivate/clear all available channels
   int i;
   for (i=0; i<num_pwm_channels; i++) {
-    neorv32_pwm_set(i, 0);
+    neorv32_pwm_ch_disable(i);
+    neorv32_pwm_ch_set_clock(i, 0, 0);
+    neorv32_pwm_ch_set_duty(i, 0);
   }
 
-  // configure and enable PWM
-  neorv32_pwm_setup(CLK_PRSC_64);
+  // configure all available channels
+  for (i=0; i<num_pwm_channels; i++) {
+    neorv32_pwm_ch_set_clock(i, CLK_PRSC_64, 0);
+    neorv32_pwm_ch_enable(i);
+  }
 
-  uint8_t pwm = 0;
-  uint8_t up = 1;
-  uint8_t ch = 0;
+  // simple animation: "pulse" channels one by one
+  neorv32_uart0_printf("Starting animation...\n");
 
-  // animate!
-  while(1) {
-  
+  int dc = 0; // current duty cycle
+  int up = 1; // up/down (increase/decrease)
+  int ch = 0; // current channel
+
+  while (1) {
+
     // update duty cycle
     if (up) {
-      if (pwm == PWM_MAX) {
+      if (dc >= (int)(MAX_DUTY)) { // maximum intensity reached?
         up = 0;
       }
       else {
-        pwm++;
+        dc++;
       }
     }
     else {
-      if (pwm == 0) {
-        ch = (ch + 1) & 3; // goto next channel
+      if (dc == 0) {
+        // goto next channel
+        if ((ch + 1) >= num_pwm_channels) {
+          ch = 0;
+        }
+        else {
+          ch++;
+        }
         up = 1;
       }
       else {
-        pwm--;
+        dc--;
       }
     }
 
-    neorv32_pwm_set(ch, pwm); // output new duty cycle
-    neorv32_cpu_delay_ms(3); // wait ~3ms
+    neorv32_pwm_ch_set_duty(ch, dc); // set new duty cycle for channel
+    delay_ms(3); // wait ~3ms using busy-wait
   }
 
   return 0;

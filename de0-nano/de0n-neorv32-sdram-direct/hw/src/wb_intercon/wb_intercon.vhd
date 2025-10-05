@@ -65,6 +65,7 @@ entity wb_intercon is
       
       -- Wishbone Slave 1
       wbs1_stb_o : out std_logic;
+      wbs1_cyc_o : out std_logic;
       wbs1_ack_i : in  std_logic := '0';
       wbs1_adr_o : out std_logic_vector(27 downto 0);  
       wbs1_dat_i : in  std_logic_vector(31 downto 0) := (others => '0')
@@ -113,6 +114,7 @@ begin
    
    -- Slave 1
    wbs1_stb_o <= wbs1_enable and wbm_stb_i;
+   wbs1_cyc_o <= wbs1_enable and wbm_cyc_i;
 
    --
    -- Slave to Master signals

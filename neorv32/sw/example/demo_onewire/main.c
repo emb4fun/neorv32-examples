@@ -1,36 +1,10 @@
-// #################################################################################################
-// # << NEORV32 - ONEWIRE (1-Wire Interface) Demo Program >>                                       #
-// # ********************************************************************************************* #
-// # BSD 3-Clause License                                                                          #
-// #                                                                                               #
-// # Copyright (c) 2023, Stephan Nolting. All rights reserved.                                     #
-// #                                                                                               #
-// # Redistribution and use in source and binary forms, with or without modification, are          #
-// # permitted provided that the following conditions are met:                                     #
-// #                                                                                               #
-// # 1. Redistributions of source code must retain the above copyright notice, this list of        #
-// #    conditions and the following disclaimer.                                                   #
-// #                                                                                               #
-// # 2. Redistributions in binary form must reproduce the above copyright notice, this list of     #
-// #    conditions and the following disclaimer in the documentation and/or other materials        #
-// #    provided with the distribution.                                                            #
-// #                                                                                               #
-// # 3. Neither the name of the copyright holder nor the names of its contributors may be used to  #
-// #    endorse or promote products derived from this software without specific prior written      #
-// #    permission.                                                                                #
-// #                                                                                               #
-// # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS   #
-// # OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF               #
-// # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE    #
-// # COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,     #
-// # EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE #
-// # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED    #
-// # AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING     #
-// # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED  #
-// # OF THE POSSIBILITY OF SUCH DAMAGE.                                                            #
-// # ********************************************************************************************* #
-// # The NEORV32 Processor - https://github.com/stnolting/neorv32              (c) Stephan Nolting #
-// #################################################################################################
+// ================================================================================ //
+// The NEORV32 RISC-V Processor - https://github.com/stnolting/neorv32              //
+// Copyright (c) NEORV32 contributors.                                              //
+// Copyright (c) 2020 - 2024 Stephan Nolting. All rights reserved.                  //
+// Licensed under the BSD-3-Clause license, see LICENSE for details.                //
+// SPDX-License-Identifier: BSD-3-Clause                                            //
+// ================================================================================ //
 
 
 /**********************************************************************//**
@@ -62,8 +36,6 @@ void show_1wire_commands(void);
 void read_byte(void);
 void write_byte(void);
 void scan_bus(void);
-uint32_t hexstr_to_uint(char *buffer, uint8_t length);
-void onewire_firq_handler(void);
 
 
 /**********************************************************************//**
@@ -91,13 +63,16 @@ int main() {
   // intro
   neorv32_uart0_printf("\n\n<<< NEORV32 1-Wire Interface (ONEWIRE) Demo Program >>>\n\n");
 
+  // info
+  neorv32_uart0_printf("ONEWIRE FIFO depth: %u entries\n", neorv32_onewire_get_fifo_depth());
+
   // configure ONEWIRE base time
   neorv32_uart0_printf("Configuring ONEWIRE time base...\n");
   uint32_t t_base_ref = 10000; // reference: t_base = 10000ns = 10us
   uint32_t t_base_real = neorv32_onewire_setup(t_base_ref);
   neorv32_uart0_printf("t_base: requested    = %u ns\n"
                        "        actual value = %u ns\n"
-                       "        difference   = %i ns\n\n", t_base_ref, t_base_real, ((int)t_base_ref)-((int)t_base_real));
+                       "        difference   = %i ns\n", t_base_ref, t_base_real, ((int)t_base_ref)-((int)t_base_real));
 
   // check bus state - should be high (pulled-high by the pull-up resistor)
   neorv32_uart0_printf("Checking bus state... ");
@@ -108,13 +83,6 @@ int main() {
     neorv32_uart0_printf("FAILED! Short circuit? Missing pull-up resistor?\n");
   }
 
-/*
-  // install "ONEWIRE operation done interrupt" - this is optional
-  neorv32_uart0_printf("Installing ONEWIRE 'operation done' interrupt handler...\n");
-  neorv32_rte_handler_install(ONEWIRE_RTE_ID, onewire_firq_handler);
-  neorv32_cpu_irq_enable(ONEWIRE_FIRQ_ENABLE); // enable ONEWIRE FIRQ
-  neorv32_cpu_eint(); // enable global interrupt flag
-*/
 
   neorv32_uart0_printf("Starting interactive user console...\n\n");
 
@@ -203,7 +171,9 @@ void show_1wire_commands(void) {
                        " 0x33 - Read ROM (for identification)\n"
                        " 0x55 - Match ROM (access specific device)\n"
                        " 0xF0 - Search ROM (for device search algorithm)\n"
-                       " 0xCC - Skip ROM (skip addressing)\n");
+                       " 0xCC - Skip ROM (skip addressing)\n"
+                       " 0xF5 - PIO read access\n"
+                       " 0x5A - PIO write access\n");
 }
 
 
@@ -245,7 +215,7 @@ void write_byte(void) {
   // enter address
   neorv32_uart0_printf("Enter write data (2 hex chars): 0x");
   neorv32_uart0_scan(terminal_buffer, 2+1, 1); // 2 hex chars for address plus '\0'
-  uint8_t wdata = (uint8_t)hexstr_to_uint(terminal_buffer, strlen(terminal_buffer));
+  uint8_t wdata = (uint8_t)neorv32_aux_hexstr2uint64(terminal_buffer, strlen(terminal_buffer));
 
   // write to bus
   neorv32_uart0_printf("\nWriting 0x");
@@ -295,46 +265,4 @@ void scan_bus(void) {
   }
 
   neorv32_uart0_printf("Devices found: %u\n", cnt);
-}
-
-
-/**********************************************************************//**
- * Helper function to convert N hex char string into uint32_t.
- *
- * @param[in] buffer Pointer to array of chars to convert into number.
- * @param[in] length Length of the conversion string.
- * @return Converted 32-bit number.
- **************************************************************************/
-uint32_t hexstr_to_uint(char *buffer, uint8_t length) {
-
-  uint32_t res = 0, d = 0;
-  char c = 0;
-
-  while (length--) {
-    c = *buffer++;
-
-    if ((c >= '0') && (c <= '9'))
-      d = (uint32_t)(c - '0');
-    else if ((c >= 'a') && (c <= 'f'))
-      d = (uint32_t)((c - 'a') + 10);
-    else if ((c >= 'A') && (c <= 'F'))
-      d = (uint32_t)((c - 'A') + 10);
-    else
-      d = 0;
-
-    res = res + (d << (length*4));
-  }
-
-  return res;
-}
-
-
-/**********************************************************************//**
- * ONEWIRE operation done interrupt handler.
- **************************************************************************/
-void onewire_firq_handler(void) {
-
-  neorv32_cpu_csr_write(CSR_MIP, ~(1 << ONEWIRE_FIRQ_PENDING)); // ack FIRQ
-
-  neorv32_uart0_printf(" <<DONE IRQ>> ");
 }

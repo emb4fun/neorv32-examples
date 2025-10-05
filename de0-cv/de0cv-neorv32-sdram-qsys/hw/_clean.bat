@@ -6,9 +6,7 @@ del *.qws
 del PLLJ_PLLSPE_INFO.txt
 del c5_pin_model_dump.txt
 del pll_sys.xml
-del .\build\*.jic
-del .\build\*.map
-del .\build\*.sof
+rmdir build /S /Q
 rmdir "db" /S /Q
 rmdir "incremental_db" /S /Q 
 rmdir "output_files" /S /Q

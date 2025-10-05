@@ -50,6 +50,7 @@ entity wb_sdram is
 
       -- Wishbone
       wbs_stb_i    : in  std_logic                      := '0';
+      wbs_cyc_i    : in  std_logic                      := '0';
       wbs_we_i     : in  std_logic                      := '0';
       wbs_sel_i    : in  std_logic_vector(03 downto 0)  := (others => '0');
       wbs_adr_i    : in  std_logic_vector(27 downto 0)  := (others => '0');
@@ -432,7 +433,7 @@ begin
    -- Output
    --------------------------------------------------------
    
-   wbs_ack_o <= '1' when ((wbs_stb_i = '1') and ((read_ack = '1' or write_ack = '1'))) else '0';
+   wbs_ack_o <= '1' when ((wbs_cyc_i = '1') and ((read_ack = '1' or write_ack = '1'))) else '0';
 
 end architecture syn;
 

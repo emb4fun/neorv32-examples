@@ -130,7 +130,7 @@ int main (void)
          neorv32_gpio_port_set(value & 0xFF);
          
          /* Wait 200ms using busy wait */
-         neorv32_cpu_delay_ms(200);
+         neorv32_aux_delay_ms(neorv32_sysinfo_get_clk(), 200);
       }
    }      
   

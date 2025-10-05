@@ -84,7 +84,7 @@ static void OutputBootMessage (void)
    const char ResetScreen[] = { 0x1B, 'c', 0 };
    
    term_printf("%s", ResetScreen);
-   neorv32_cpu_delay_ms(200);   
+   neorv32_aux_delay_ms(neorv32_sysinfo_get_clk(), 200);   
 
    term_printf("\r\n");
    term_printf("*********************************\r\n");
@@ -224,7 +224,7 @@ int main (void)
          neorv32_gpio_port_set(value);
          
          /* Wait 200ms using busy wait */
-         neorv32_cpu_delay_ms(200);
+         neorv32_aux_delay_ms(neorv32_sysinfo_get_clk(), 200);
       }
    }      
   
